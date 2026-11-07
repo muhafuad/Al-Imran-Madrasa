@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  .font-arabic {
+    font-family: 'Amiri', 'Cairo', serif, system-ui;
+  }
+  .font-amharic {
+    font-family: 'Noto Sans Ethiopic', sans-serif;
+  }
+  .font-cairo {
+    font-family: 'Cairo', sans-serif;
+  }
+
+  select {
+    color: #0f172a;
+  }
+  .dark select {
+    color: #f8fafc;
+  }
+  select option {
+    color: #0f172a;
+    background-color: #ffffff;
+  }
+  .dark select option {
+    color: #f8fafc;
+    background-color: #0f172a;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* Islamic Geometric Background Pattern */
+.bg-islamic-pattern {
+  background-color: #064e3b;
+  background-image: radial-gradient(#10b981 0.75px, transparent 0.75px), radial-gradient(#059669 0.75px, #064e3b 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+}
+
+.bg-islamic-subtle {
+  background-color: #f8fafc;
+  background-image: radial-gradient(#10b98115 0.75px, transparent 0.75px);
+  background-size: 24px 24px;
+}
+
