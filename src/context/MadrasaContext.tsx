@@ -50,6 +50,10 @@ import {
   fetchAllFromSupabase,
   isSupabaseConfigured,
   subscribeToDatabaseChanges,
+  SUPABASE_CONFIG_EVENT,
+  STORAGE_SUPABASE_URL_KEY,
+  STORAGE_SUPABASE_KEY,
+  STORAGE_AUTO_SYNC_KEY,
   dbUpsertUserProfile,
   dbDeleteUserProfile,
   dbUpdateUserPassword,
@@ -89,7 +93,7 @@ import {
   dbUpsertRecitation,
   dbFetchRecitations,
   dbDeleteRecitation,
-  type SupabaseCloudData,
+ type SupabaseCloudData,
 } from '../lib/supabase';
 import {
   verifyPassword,
@@ -898,7 +902,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               setRecitations((prev) => {
                 const map = new Map<string, RecitationSubmission>();
                 prev.forEach((r) => map.set(r.id, r));
-               if (res.data?.recitations) {
+                 if (res.data?.recitations) {
                             res.data.recitations.forEach((r) => map.set(r.id, r));
                    }
                 const merged = Array.from(map.values()).sort(
@@ -917,13 +921,27 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
     };
 
+    const handleSupabaseConfigChange = (e: any) => {
+      if (!isMounted) return;
+      const active = typeof e?.detail?.active === 'boolean' ? e.detail.active : isSupabaseConfigured();
+      setIsSupabaseActive(active);
+      if (active && !unsubscribe) {
+        startCloudSync();
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(SUPABASE_CONFIG_EVENT, handleSupabaseConfigChange);
+    }
+
     const configured = isSupabaseConfigured();
     setIsSupabaseActive(configured);
 
     if (configured) {
       startCloudSync();
+      // Ensure local credentials are pushed to server config for cross-browser logins
+      syncServerSupabaseConfig().catch(() => {});
     } else {
-      // Silently check backend server / environment config so end-users never have to enter Supabase keys
+      // Silently check IndexedDB & backend server / environment config so end-users never have to enter Supabase keys
       syncServerSupabaseConfig().then((synced) => {
         if (!isMounted) return;
         if (synced || isSupabaseConfigured()) {
@@ -938,6 +956,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (typeof unsubscribe === 'function') unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('madrasa-db-sync-warning', handleDbWarning);
+        window.removeEventListener(SUPABASE_CONFIG_EVENT, handleSupabaseConfigChange);
       }
     };
   }, []);
@@ -1108,7 +1127,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           localStorage.setItem(STORAGE_HOMEWORK_KEY, JSON.stringify(result.data.homeworkList));
         }
       }
-       if (result.data.recitations !== undefined && result.data.recitations.length > 0) {
+      if (result.data.recitations !== undefined && result.data.recitations.length > 0) {
         setRecitations((prev) => {
           const map = new Map<string, RecitationSubmission>();
           prev.forEach((r) => map.set(r.id, r));
@@ -1300,12 +1319,6 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     };
     hydrateFromIDB();
-    // Sync Supabase configuration across browsers (Chrome, Edge, etc.)
-    syncServerSupabaseConfig().then(connected => {
-      if (connected) {
-        pullAllFromCloud().catch(() => {});
-      }
-    });
   }, []);
 
   // Listen to Supabase Auth State changes (e.g. email verification callback, password login, session restore)
@@ -1322,10 +1335,12 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Fetch user profile from Supabase profiles table
         let profileData: any = null;
         try {
+          const safeEmail = userEmail.replace(/["\\]/g, '');
+          const safeUid = String(authUser.id || '').replace(/["\\]/g, '');
           const { data: pData } = await supabase
             .from('profiles')
             .select('*')
-            .or(`email.ilike.${userEmail},id.eq.${authUser.id}`)
+            .or(`email.ilike."${safeEmail}",id.eq."${safeUid}"`)
             .limit(1)
             .maybeSingle();
           profileData = pData;
@@ -1380,7 +1395,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setAllUsers(prev => {
           const filtered = prev.filter(u => u.email.toLowerCase().trim() !== userEmail && u.id !== restoredUser.id);
-          const updated: UserProfile[] = [...filtered, restoredUser];
+          const updated = [...filtered, restoredUser];
           if (typeof window !== 'undefined') {
             localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
           }
@@ -2885,7 +2900,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ? 'result_published'
             : (app.status === 'pending' ? 'assessed' : app.status);
 
-          const updated: EntranceApplication = {
+          const updated:EntranceApplication = {
             ...app,
             status: updatedStatus,
             placementDetails: {
@@ -2955,7 +2970,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const nextStatus: EntranceApplicationStatus = app.assessmentResult
             ? 'approved_for_admission'
             : 'approved_for_assessment';
-          const updated:EntranceApplication = {
+          const updated: EntranceApplication = {
             ...app,
             status: nextStatus,
             adminDecision: 'Approved',
@@ -3323,7 +3338,19 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const resetAllData = () => {
+    const savedSupaUrl = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_SUPABASE_URL_KEY) : null;
+    const savedSupaKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_SUPABASE_KEY) : null;
+    const savedSupaAutoSync = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_AUTO_SYNC_KEY) : null;
+
     localStorage.clear();
+
+    if (typeof window !== 'undefined' && savedSupaUrl && savedSupaKey) {
+      localStorage.setItem(STORAGE_SUPABASE_URL_KEY, savedSupaUrl);
+      localStorage.setItem(STORAGE_SUPABASE_KEY, savedSupaKey);
+      if (savedSupaAutoSync !== null) {
+        localStorage.setItem(STORAGE_AUTO_SYNC_KEY, savedSupaAutoSync);
+      }
+    }
     setAllUsers([]);
     setCurrentUserState(null);
     setStudents([]);

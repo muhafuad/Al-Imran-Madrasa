@@ -36,7 +36,7 @@ import {
   SUPABASE_SQL_SCHEMA,
   isSupabaseConfigured,
 } from '../../lib/supabase';
-import type { Language } from '../../i18n/translations';
+import type {Language } from '../../i18n/translations';
 import { UserManagementModal } from '../auth/UserManagementModal';
 import { AccessDenied } from '../common/AccessDenied';
 
@@ -117,7 +117,7 @@ export const SettingsModule: React.FC = () => {
   const handleTestSupabase = async () => {
     setTestingConnection(true);
     setConnectionStatus({ tested: false, success: false, message: '' });
-    saveSupabaseConfig(supabaseUrl, supabaseAnonKey);
+    await saveSupabaseConfig(supabaseUrl, supabaseAnonKey);
 
     const res = await testSupabaseConnection(supabaseUrl, supabaseAnonKey);
     setTestingConnection(false);
@@ -164,14 +164,19 @@ export const SettingsModule: React.FC = () => {
     setTimeout(() => setSyncStatusMsg(null), 5000);
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (currentUser?.role === 'super_admin') {
-      saveSupabaseConfig(supabaseUrl, supabaseAnonKey);
-      alert('Institutional settings and Supabase configurations saved successfully.');
+    if (currentUser?.role === 'super_admin' && supabaseUrl.trim() && supabaseAnonKey.trim()) {
+      const serverSaved = await saveSupabaseConfig(supabaseUrl, supabaseAnonKey);
+      setSyncStatusMsg(
+        serverSaved
+          ? 'Institutional settings and Supabase server configuration saved.'
+          : 'Institutional settings and local Supabase configuration saved.'
+      );
     } else {
-      alert('Institutional settings saved successfully.');
+      setSyncStatusMsg('Institutional settings saved successfully.');
     }
+    setTimeout(() => setSyncStatusMsg(null), 5000);
   };
 
   const branches = [

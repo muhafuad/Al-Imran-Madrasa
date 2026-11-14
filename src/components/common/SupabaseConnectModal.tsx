@@ -22,6 +22,7 @@ import {
 import {
   getStoredSupabaseConfig,
   saveSupabaseConfig,
+  syncServerSupabaseConfig,
   testSupabaseConnection,
   SUPABASE_SQL_SCHEMA,
   SUPABASE_RLS_FIX_SQL,
@@ -77,12 +78,21 @@ export const SupabaseConnectModal: React.FC<SupabaseConnectModalProps> = ({ isOp
   const isKeyJwt = isValidJwtFormat(anonKey);
 
   useEffect(() => {
-    if (isOpen) {
-      const config = getStoredSupabaseConfig();
-      if (config.url) setUrl(config.url);
-      if (config.anonKey) setAnonKey(config.anonKey);
-      setAutoSync(config.autoSync);
-      setSyncStatusMsg(null);
+    if (!isOpen) return;
+    const config = getStoredSupabaseConfig();
+    if (config.url) setUrl(config.url);
+    if (config.anonKey) setAnonKey(config.anonKey);
+    setAutoSync(config.autoSync);
+    setSyncStatusMsg(null);
+    if (!config.url || !config.anonKey) {
+      syncServerSupabaseConfig().then((synced) => {
+        if (synced) {
+          const fresh = getStoredSupabaseConfig();
+          if (fresh.url) setUrl(fresh.url);
+          if (fresh.anonKey) setAnonKey(fresh.anonKey);
+          setAutoSync(fresh.autoSync);
+        }
+      }).catch(() => {});
     }
   }, [isOpen]);
 
@@ -100,7 +110,7 @@ export const SupabaseConnectModal: React.FC<SupabaseConnectModalProps> = ({ isOp
 
     setTesting(true);
     setTestResult({ tested: false, success: false, message: '' });
-    saveSupabaseConfig(url, anonKey, autoSync);
+    await saveSupabaseConfig(url, anonKey, autoSync);
 
     const res = await testSupabaseConnection(url, anonKey);
     setTesting(false);
@@ -303,7 +313,7 @@ export const SupabaseConnectModal: React.FC<SupabaseConnectModalProps> = ({ isOp
                     onChange={(e) => setAnonKey(e.target.value)}
                     placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                     className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono text-xs text-slate-900 dark:text-slate-100 focus:outline-none ${
-                      anonKey && (!anonKey.trim().startsWith('eyJ') || anonKey.trim().startsWith('sbp_'))
+                      anonKey && (!isValidJwtFormat(anonKey) || anonKey.trim().startsWith('sbp_'))
                         ? 'border-amber-400 dark:border-amber-600 focus:border-amber-500'
                         : 'border-slate-200 dark:border-slate-700 focus:border-emerald-500'
                     }`}
@@ -311,13 +321,13 @@ export const SupabaseConnectModal: React.FC<SupabaseConnectModalProps> = ({ isOp
                   {anonKey && anonKey.trim().startsWith('sbp_') && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
-                      <span>This is a Personal Access Token (sbp_...). Please use the <strong>anon public</strong> key (starts with eyJ...).</span>
+                      <span>This is a Personal Access Token (sbp_...). Please use the <strong>anon public</strong> key (starts with eyJ... or sb_publishable_...).</span>
                     </p>
                   )}
-                  {anonKey && !anonKey.trim().startsWith('eyJ') && !anonKey.trim().startsWith('sbp_') && (
+                  {anonKey && !isValidJwtFormat(anonKey) && !anonKey.trim().startsWith('sbp_') && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
                       <AlertTriangle className="w-3 h-3 shrink-0" />
-                      <span>Anon Key should be a JWT starting with &quot;eyJ...&quot;. Make sure you did not paste the database password or project ID.</span>
+                      <span>Anon Key should be a JWT starting with &quot;eyJ...&quot; or &quot;sb_publishable_...&quot;. Make sure you did not paste the database password or project ID.</span>
                     </p>
                   )}
                   <span className="text-[10px] text-slate-400 mt-1 block">

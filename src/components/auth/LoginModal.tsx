@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMadrasa } from '../../context/MadrasaContext';
 import { MadrasaLogo } from '../common/MadrasaLogo';
+import { SupabaseConnectModal } from '../common/SupabaseConnectModal';
 import {
   ensureSupabaseClient,
   syncServerSupabaseConfig,
@@ -41,6 +42,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isDbInactiveError, setIsDbInactiveError] = useState(false);
+  const [showAdminDbModal, setShowAdminDbModal] = useState(false);
   const [successNotice, setSuccessNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -52,6 +55,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setIsDbInactiveError(false);
     setSuccessNotice('');
     if (!emailOrPhone.trim()) {
       setErrorMessage('Please enter your email or phone number.');
@@ -64,7 +68,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
     setLoading(false);
 
     if (!result.success) {
-      setErrorMessage(result.message || 'Login failed. Please check your credentials.');
+      const msg = result.message || 'Login failed. Please check your credentials.';
+      setErrorMessage(msg);
+      setIsDbInactiveError(msg.toLowerCase().includes('database connection is not active'));
     } else {
       setActiveTab('dashboard');
       setSuccessNotice(result.message || 'Signed in successfully.');
@@ -158,9 +164,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
 
         {/* Error message */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span className="font-medium">{errorMessage}</span>
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-300 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span className="font-medium">{errorMessage}</span>
+            </div>
+            {isDbInactiveError && (
+              <div className="pl-6">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminDbModal(true)}
+                  className="text-[11px] font-bold underline text-rose-900 dark:text-rose-200 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
+                >
+                  Administrator? Link Server Database Connection
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -253,6 +272,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
           </p>
         </div>
       </div>
+
+      {showAdminDbModal && (
+        <SupabaseConnectModal
+          isOpen={showAdminDbModal}
+          onClose={() => {
+            setShowAdminDbModal(false);
+            setErrorMessage('');
+            setIsDbInactiveError(false);
+          }}
+        />
+      )}
     </div>
   );
 };

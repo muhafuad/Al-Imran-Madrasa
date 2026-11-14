@@ -25,16 +25,64 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+interface ServerSupabaseConfig {
+  url: string;
+  anonKey: string;
+  autoSync: boolean;
+  updatedAt?: string;
+}
+
+let inMemorySupabaseConfig: ServerSupabaseConfig | null = null;
+
+const sanitizeServerUrl = (url: string): string => {
+  let cleaned = String(url || "").trim();
+  cleaned = cleaned.replace(/^(VITE_)?SUPABASE_URL\s*[:=]\s*/i, "");
+  cleaned = cleaned.replace(/^url\s*[:=]\s*/i, "");
+  cleaned = cleaned.replace(/^['"`]|['"`]$/g, "").trim();
+  if (
+    cleaned &&
+    !cleaned.startsWith("http://") &&
+    !cleaned.startsWith("https://")
+  ) {
+    cleaned = `https://${cleaned}`;
+  }
+  return cleaned.replace(/\/+$/, "");
+};
+
+const sanitizeServerKey = (key: string): string => {
+  let cleaned = String(key || "").trim();
+  cleaned = cleaned.replace(/^(VITE_)?SUPABASE_ANON_KEY\s*[:=]\s*/i, "");
+  cleaned = cleaned.replace(/^(VITE_)?SUPABASE_KEY\s*[:=]\s*/i, "");
+  cleaned = cleaned.replace(/^anon(_key)?\s*[:=]\s*/i, "");
+  cleaned = cleaned.replace(/^['"`]|['"`]$/g, "").trim();
+  return cleaned;
+};
+
 // 2. Supabase Server-side Config Endpoint (enables cross-browser sync for Chrome, Edge, Safari, Mobile)
 app.get("/api/supabase-config", (req, res) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate",
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const data = fs.readFileSync(CONFIG_FILE, "utf-8");
       const parsed = JSON.parse(data);
-      if (parsed.url && parsed.anonKey) {
+      const cleanUrl = sanitizeServerUrl(parsed.url);
+      const cleanKey = sanitizeServerKey(parsed.anonKey);
+      if (cleanUrl && cleanKey && cleanUrl.startsWith("http")) {
+        inMemorySupabaseConfig = {
+          url: cleanUrl,
+          anonKey: cleanKey,
+          autoSync: parsed.autoSync !== false,
+          updatedAt: parsed.updatedAt,
+        };
         return res.json({
-          url: parsed.url,
-          anonKey: parsed.anonKey,
+          url: cleanUrl,
+          anonKey: cleanKey,
           autoSync: parsed.autoSync !== false,
           source: "server_file",
         });
@@ -44,17 +92,28 @@ app.get("/api/supabase-config", (req, res) => {
     console.warn("Error reading config file:", err);
   }
 
+  if (inMemorySupabaseConfig?.url && inMemorySupabaseConfig?.anonKey) {
+    return res.json({
+      url: inMemorySupabaseConfig.url,
+      anonKey: inMemorySupabaseConfig.anonKey,
+      autoSync: inMemorySupabaseConfig.autoSync !== false,
+      source: "server_memory",
+    });
+  }
+
   // Fallback to process.env if available
-  const envUrl =
-    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const envKey =
-    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+  const envUrl = sanitizeServerUrl(
+    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
+  );
+  const envKey = sanitizeServerKey(
+    process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "",
+  );
 
   res.json({
     url: envUrl,
     anonKey: envKey,
     autoSync: true,
-    source: envUrl ? "server_env" : "none",
+    source: envUrl && envKey ? "server_env" : "none",
   });
 });
 
@@ -80,8 +139,8 @@ app.post("/api/supabase-config", (req, res) => {
     return res.status(400).json({ error: "URL and Anon Key are required" });
   }
 
-  const trimmedUrl = String(url).trim();
-  const trimmedKey = String(anonKey).trim();
+  const trimmedUrl = sanitizeServerUrl(String(url));
+  const trimmedKey = sanitizeServerKey(String(anonKey));
 
   // Security: Prevent SSRF / local network targeting (must be https:// URL)
   try {
@@ -116,12 +175,16 @@ app.post("/api/supabase-config", (req, res) => {
   }
 
   try {
-    const configData = {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const configData: ServerSupabaseConfig = {
       url: trimmedUrl,
       anonKey: trimmedKey,
       autoSync: autoSync !== false,
       updatedAt: new Date().toISOString(),
     };
+    inMemorySupabaseConfig = configData;
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(configData, null, 2), "utf-8");
     return res.json({
       success: true,

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { hashPassword, isPasswordHash } from "../utils/security";
+import { idbGet, idbSet } from "./indexedDb";
 import type {
   Student,
   Teacher,
@@ -22,25 +23,25 @@ import type {
 } from "../types";
 import type { RecitationSubmission } from "../types/quranTypes";
 
-// Persistent LocalStorage keys for Supabase project credentials
-const STORAGE_SUPABASE_URL_KEY = "alimran_supabase_url";
-const STORAGE_SUPABASE_KEY = "alimran_supabase_anon_key";
-const STORAGE_AUTO_SYNC_KEY = "alimran_supabase_auto_sync";
+// Persistent LocalStorage & IndexedDB keys for Supabase project credentials
+export const STORAGE_SUPABASE_URL_KEY = "alimran_supabase_url";
+export const STORAGE_SUPABASE_KEY = "alimran_supabase_anon_key";
+export const STORAGE_AUTO_SYNC_KEY = "alimran_supabase_auto_sync";
+const STORAGE_SUPABASE_CONFIG_IDB_KEY = "alimran_supabase_config";
+export const SUPABASE_CONFIG_EVENT = "madrasa-supabase-configured";
 
 let supabaseClientInstance: SupabaseClient | null = null;
 
 export const sanitizeSupabaseUrl = (url: string): string => {
   if (!url) return "";
-  let cleaned = url.trim();
+  let cleaned = String(url).trim();
+  if (!cleaned || cleaned === "null" || cleaned === "undefined") return "";
   // Strip common env prefixes if user pasted variable declaration (e.g. VITE_SUPABASE_URL=... or url=...)
   cleaned = cleaned.replace(/^(VITE_)?SUPABASE_URL\s*[:=]\s*/i, "");
   cleaned = cleaned.replace(/^url\s*[:=]\s*/i, "");
   cleaned = cleaned.replace(/^['"`]|['"`]$/g, "").trim();
-  if (
-    cleaned &&
-    !cleaned.startsWith("http://") &&
-    !cleaned.startsWith("https://")
-  ) {
+  if (!cleaned || cleaned === "null" || cleaned === "undefined") return "";
+  if (!cleaned.startsWith("http://") && !cleaned.startsWith("https://")) {
     cleaned = `https://${cleaned}`;
   }
   return cleaned.replace(/\/+$/, ""); // remove trailing slashes
@@ -48,12 +49,14 @@ export const sanitizeSupabaseUrl = (url: string): string => {
 
 export const sanitizeSupabaseKey = (key: string): string => {
   if (!key) return "";
-  let cleaned = key.trim();
+  let cleaned = String(key).trim();
+  if (!cleaned || cleaned === "null" || cleaned === "undefined") return "";
   // Strip common env prefixes if user pasted variable declaration (e.g. VITE_SUPABASE_ANON_KEY=... or anon_key: ...)
   cleaned = cleaned.replace(/^(VITE_)?SUPABASE_ANON_KEY\s*[:=]\s*/i, "");
   cleaned = cleaned.replace(/^(VITE_)?SUPABASE_KEY\s*[:=]\s*/i, "");
   cleaned = cleaned.replace(/^anon(_key)?\s*[:=]\s*/i, "");
   cleaned = cleaned.replace(/^['"`]|['"`]$/g, "").trim();
+  if (!cleaned || cleaned === "null" || cleaned === "undefined") return "";
   return cleaned;
 };
 
@@ -66,8 +69,19 @@ export const extractSupabaseProjectRef = (url: string): string | null => {
 export const isValidJwtFormat = (key: string): boolean => {
   if (!key) return false;
   const cleaned = sanitizeSupabaseKey(key);
+  if (cleaned.startsWith("sb_publishable_") && cleaned.length >= 24) {
+    return true;
+  }
   const parts = cleaned.split(".");
   return parts.length === 3 && parts[0].startsWith("eyJ");
+};
+
+const emitSupabaseConfigUpdated = (active: boolean) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(SUPABASE_CONFIG_EVENT, { detail: { active } }),
+    );
+  }
 };
 
 export const getStoredSupabaseConfig = () => {
@@ -92,47 +106,71 @@ export const getStoredSupabaseConfig = () => {
   return { url, anonKey, autoSync, projectRef };
 };
 
-export const saveSupabaseConfig = (
+const pushSupabaseConfigToServer = async (
+  url: string,
+  anonKey: string,
+  autoSync: boolean,
+): Promise<boolean> => {
+  if (!url || !anonKey || !url.startsWith("http")) return false;
+  try {
+    const res = await fetch("/api/supabase-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, anonKey, autoSync }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Server config sync note:", err);
+    return false;
+  }
+};
+
+export const saveSupabaseConfig = async (
   url: string,
   anonKey: string,
   autoSync: boolean = true,
-) => {
-  if (typeof window !== "undefined") {
-    const cleanUrl = sanitizeSupabaseUrl(url);
-    const cleanKey = sanitizeSupabaseKey(anonKey);
-    localStorage.setItem(STORAGE_SUPABASE_URL_KEY, cleanUrl);
-    localStorage.setItem(STORAGE_SUPABASE_KEY, cleanKey);
-    localStorage.setItem(STORAGE_AUTO_SYNC_KEY, autoSync ? "true" : "false");
+): Promise<boolean> => {
+  if (typeof window === "undefined") return false;
 
-    // Remove any stale auth token stored by Supabase auth for this project
-    const projectRef = extractSupabaseProjectRef(cleanUrl);
-    if (projectRef) {
-      try {
-        localStorage.removeItem(`sb-${projectRef}-auth-token`);
-      } catch {
-        // ignore
-      }
-    }
-    // Reset instance so next call initializes with new credentials
-    supabaseClientInstance = null;
+  const cleanUrl = sanitizeSupabaseUrl(url);
+  const cleanKey = sanitizeSupabaseKey(anonKey);
+  localStorage.setItem(STORAGE_SUPABASE_URL_KEY, cleanUrl);
+  localStorage.setItem(STORAGE_SUPABASE_KEY, cleanKey);
+  localStorage.setItem(STORAGE_AUTO_SYNC_KEY, autoSync ? "true" : "false");
 
-    // Send to backend server to enable seamless cross-browser connection for Chrome, Edge, Safari, Mobile
+  // Remove any stale auth token stored by Supabase auth for this project
+  const projectRef = extractSupabaseProjectRef(cleanUrl);
+  if (projectRef) {
     try {
-      fetch("/api/supabase-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: cleanUrl, anonKey: cleanKey, autoSync }),
-      }).catch((err) => {
-        console.warn("Background server config sync note:", err);
-      });
+      localStorage.removeItem(`sb-${projectRef}-auth-token`);
     } catch {
       // ignore
     }
   }
+  // Reset instance so next call initializes with new credentials
+  supabaseClientInstance = null;
+
+  const isConfigured = Boolean(
+    cleanUrl && cleanKey && cleanUrl.startsWith("http"),
+  );
+  if (isConfigured) {
+    idbSet(STORAGE_SUPABASE_CONFIG_IDB_KEY, {
+      url: cleanUrl,
+      anonKey: cleanKey,
+      autoSync,
+    }).catch(() => {});
+  }
+  emitSupabaseConfigUpdated(isConfigured);
+
+  if (isConfigured) {
+    return await pushSupabaseConfigToServer(cleanUrl, cleanKey, autoSync);
+  }
+  return false;
 };
 
 /**
- * Sync Supabase configuration to/from server (for cross-browser persistence across Chrome, Edge, Safari, etc.)
+ * Sync Supabase configuration across localStorage, IndexedDB, and backend server
+ * (for cross-browser persistence across Chrome, Edge, Safari, Mobile, and after localStorage resets)
  */
 export const syncServerSupabaseConfig = async (): Promise<boolean> => {
   if (typeof window === "undefined") return false;
@@ -142,45 +180,77 @@ export const syncServerSupabaseConfig = async (): Promise<boolean> => {
     current.url && current.anonKey && current.url.startsWith("http"),
   );
 
-  // 1. If this browser has local credentials in localStorage, auto-push to server so other browsers (Chrome, Edge) inherit it
+  // 1. If this browser has local credentials, back up to IndexedDB & push to server so other browsers inherit it
   if (hasLocal) {
-    try {
-      fetch("/api/supabase-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: current.url,
-          anonKey: current.anonKey,
-          autoSync: current.autoSync !== false,
-        }),
-      }).catch(() => {});
-    } catch {
-      // ignore
-    }
+    idbSet(STORAGE_SUPABASE_CONFIG_IDB_KEY, {
+      url: current.url,
+      anonKey: current.anonKey,
+      autoSync: current.autoSync !== false,
+    }).catch(() => {});
+    await pushSupabaseConfigToServer(
+      current.url,
+      current.anonKey,
+      current.autoSync !== false,
+    );
+    emitSupabaseConfigUpdated(true);
     return true;
   }
 
-  // 2. If this browser does not have local credentials, fetch from server
+  // 2. Check IndexedDB backup (survives localStorage.clear() or resetAllData)
   try {
-    const res = await fetch("/api/supabase-config");
-    if (res.ok) {
-      const data = await res.json();
-      if (
-        data &&
-        data.url &&
-        data.anonKey &&
-        String(data.url).startsWith("http")
-      ) {
-        const cleanUrl = sanitizeSupabaseUrl(data.url);
-        const cleanKey = sanitizeSupabaseKey(data.anonKey);
+    const idbCfg = await idbGet<{
+      url?: string;
+      anonKey?: string;
+      autoSync?: boolean;
+    } | null>(STORAGE_SUPABASE_CONFIG_IDB_KEY, null);
+    if (idbCfg?.url && idbCfg?.anonKey) {
+      const cleanUrl = sanitizeSupabaseUrl(idbCfg.url);
+      const cleanKey = sanitizeSupabaseKey(idbCfg.anonKey);
+      if (cleanUrl && cleanKey && cleanUrl.startsWith("http")) {
         localStorage.setItem(STORAGE_SUPABASE_URL_KEY, cleanUrl);
         localStorage.setItem(STORAGE_SUPABASE_KEY, cleanKey);
         localStorage.setItem(
           STORAGE_AUTO_SYNC_KEY,
-          data.autoSync !== false ? "true" : "false",
+          idbCfg.autoSync !== false ? "true" : "false",
         );
         supabaseClientInstance = null;
+        await pushSupabaseConfigToServer(
+          cleanUrl,
+          cleanKey,
+          idbCfg.autoSync !== false,
+        );
+        emitSupabaseConfigUpdated(true);
         return true;
+      }
+    }
+  } catch {
+    // ignore IndexedDB fallback errors
+  }
+
+  // 3. If this browser does not have local credentials, fetch from server
+  try {
+    const res = await fetch("/api/supabase-config", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.url && data.anonKey) {
+        const cleanUrl = sanitizeSupabaseUrl(data.url);
+        const cleanKey = sanitizeSupabaseKey(data.anonKey);
+        if (cleanUrl && cleanKey && cleanUrl.startsWith("http")) {
+          localStorage.setItem(STORAGE_SUPABASE_URL_KEY, cleanUrl);
+          localStorage.setItem(STORAGE_SUPABASE_KEY, cleanKey);
+          localStorage.setItem(
+            STORAGE_AUTO_SYNC_KEY,
+            data.autoSync !== false ? "true" : "false",
+          );
+          idbSet(STORAGE_SUPABASE_CONFIG_IDB_KEY, {
+            url: cleanUrl,
+            anonKey: cleanKey,
+            autoSync: data.autoSync !== false,
+          }).catch(() => {});
+          supabaseClientInstance = null;
+          emitSupabaseConfigUpdated(true);
+          return true;
+        }
       }
     }
   } catch (e) {
@@ -213,9 +283,9 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 
 export const ensureSupabaseClient =
   async (): Promise<SupabaseClient | null> => {
-    let client = getSupabaseClient();
+    const client = getSupabaseClient();
     if (client) {
-      // Also broadcast to server just in case
+      // Also broadcast to server in background so other browsers/tabs inherit credentials
       syncServerSupabaseConfig().catch(() => {});
       return client;
     }
@@ -1959,9 +2029,16 @@ export const dbUpdateUserPassword = async (
       : await hashPassword(newPassword);
 
     // 1. Locate existing rows in profiles table first so we never silently update 0 rows
-    const matchFilter = cleanEmail
-      ? `id.eq.${userId},email.ilike.${cleanEmail}`
-      : `id.eq.${userId}`;
+    const cleanUserId = String(userId || "")
+      .replace(/["\\]/g, "")
+      .trim();
+    const safeEmail = cleanEmail.replace(/["\\]/g, "").trim();
+    const matchFilter =
+      safeEmail && cleanUserId
+        ? `id.eq."${cleanUserId}",email.ilike."${safeEmail}"`
+        : safeEmail
+          ? `email.ilike."${safeEmail}"`
+          : `id.eq."${cleanUserId}"`;
 
     const { data: existingRows } = await supabase
       .from("profiles")
