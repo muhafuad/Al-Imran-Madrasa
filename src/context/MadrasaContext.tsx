@@ -89,10 +89,9 @@ import {
   dbUpsertRecitation,
   dbFetchRecitations,
   dbDeleteRecitation,
-  
+  type SupabaseCloudData,
 } from '../lib/supabase';
 import {
-  hashPassword,
   verifyPassword,
   generateSessionSignature,
   verifySessionSignature,
@@ -393,25 +392,27 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            // Respect stored users list and filter out any explicitly deleted accounts
-            return parsed.filter(
-              (u: UserProfile) =>
-                !deletedSet.has(u.id.toLowerCase().trim()) &&
-                !deletedSet.has((u.email || '').toLowerCase().trim())
-            );
+            // Respect stored users list and filter out any explicitly deleted accounts (never retain passwords in browser storage)
+            return parsed
+              .filter(
+                (u: UserProfile) =>
+                  !deletedSet.has(u.id.toLowerCase().trim()) &&
+                  !deletedSet.has((u.email || '').toLowerCase().trim())
+              )
+              .map(({ password: _pw, ...u }: UserProfile) => u);
           }
         } catch (e) {
           console.error(e);
         }
       }
-      // If never saved before in this browser, initialize with initial users minus any deleted
+      // If never saved before in this browser, initialize directory without client-side passwords
       return INITIAL_USERS.filter(
         (u: UserProfile) =>
           !deletedSet.has(u.id.toLowerCase().trim()) &&
           !deletedSet.has((u.email || '').toLowerCase().trim())
-      );
+      ).map(({ password: _pw, ...u }) => u);
     }
-    return INITIAL_USERS;
+    return INITIAL_USERS.map(({ password: _pw, ...u }) => u);
   });
 
   const [currentUser, setCurrentUserState] = useState<UserProfile | null>(() => {
@@ -836,7 +837,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Check Supabase availability on mount, auto-hydrate from database, and listen to real-time events
+  // Check Supabase availability on mount (including server-side env/config), auto-hydrate from database, and listen to real-time events
   useEffect(() => {
     let isMounted = true;
     let unsubscribe: (() => void) | undefined;
@@ -861,7 +862,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pullAllFromCloud();
 
       // Subscribe to real-time Postgres changes across all tables
-       unsubscribe = subscribeToDatabaseChanges((tableName, eventType) => {
+      unsubscribe = subscribeToDatabaseChanges((tableName, eventType) => {
         console.log(`[Supabase Realtime] Event: ${eventType} on table: ${tableName}`);
         // Refresh cloud state on remote table changes
         fetchAllFromSupabase().then((res) => {
@@ -897,7 +898,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               setRecitations((prev) => {
                 const map = new Map<string, RecitationSubmission>();
                 prev.forEach((r) => map.set(r.id, r));
-                 if (res.data?.recitations) {
+               if (res.data?.recitations) {
                             res.data.recitations.forEach((r) => map.set(r.id, r));
                    }
                 const merged = Array.from(map.values()).sort(
@@ -914,8 +915,9 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         });
       });
+    };
 
-      const configured = isSupabaseConfigured();
+    const configured = isSupabaseConfigured();
     setIsSupabaseActive(configured);
 
     if (configured) {
@@ -930,10 +932,9 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }).catch(() => {});
     }
-  }
 
     return () => {
-          isMounted = false;
+      isMounted = false;
       if (typeof unsubscribe === 'function') unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('madrasa-db-sync-warning', handleDbWarning);
@@ -1107,7 +1108,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           localStorage.setItem(STORAGE_HOMEWORK_KEY, JSON.stringify(result.data.homeworkList));
         }
       }
-      if (result.data.recitations !== undefined && result.data.recitations.length > 0) {
+       if (result.data.recitations !== undefined && result.data.recitations.length > 0) {
         setRecitations((prev) => {
           const map = new Map<string, RecitationSubmission>();
           prev.forEach((r) => map.set(r.id, r));
@@ -1165,18 +1166,20 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [language]);
 
-  // Asynchronous IndexedDB Persistence Effects
+  // Asynchronous IndexedDB Persistence Effects (never persist passwords to browser storage)
   useEffect(() => {
-    localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(allUsers));
-    idbSet(STORAGE_USERS_KEY, allUsers);
+    const sanitizedUsers = allUsers.map(({ password: _pw, ...rest }) => rest);
+    localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(sanitizedUsers));
+    idbSet(STORAGE_USERS_KEY, sanitizedUsers);
   }, [allUsers]);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(STORAGE_CURRENT_USER_KEY, JSON.stringify(currentUser));
-      const sig = generateSessionSignature(currentUser.id, currentUser.role, currentUser.email);
+      const { password: _pw, ...safeSessionUser } = currentUser;
+      localStorage.setItem(STORAGE_CURRENT_USER_KEY, JSON.stringify(safeSessionUser));
+      const sig = generateSessionSignature(safeSessionUser.id, safeSessionUser.role, safeSessionUser.email);
       localStorage.setItem('alimran_session_sig', sig);
-      idbSet(STORAGE_CURRENT_USER_KEY, currentUser);
+      idbSet(STORAGE_CURRENT_USER_KEY, safeSessionUser);
     } else {
       localStorage.removeItem(STORAGE_CURRENT_USER_KEY);
       localStorage.removeItem('alimran_session_sig');
@@ -1377,7 +1380,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setAllUsers(prev => {
           const filtered = prev.filter(u => u.email.toLowerCase().trim() !== userEmail && u.id !== restoredUser.id);
-          const updated = [...filtered, restoredUser];
+          const updated: UserProfile[] = [...filtered, restoredUser];
           if (typeof window !== 'undefined') {
             localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
           }
@@ -1434,13 +1437,11 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     madrasaBranchName: string;
   }): Promise<UserProfile> => {
     const rawPass = adminData.password || 'Admin@123';
-    const hashedPass = await hashPassword(rawPass);
     const adminUser: UserProfile = {
       id: `usr-admin-${Date.now()}`,
       name: adminData.name,
       arabicName: adminData.arabicName || adminData.name,
       email: adminData.email.toLowerCase().trim(),
-      password: hashedPass,
       role: 'super_admin',
       phone: adminData.phone,
       madrasaBranchId: 'cmc-main',
@@ -1480,13 +1481,11 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     assignedHifzHalqah?: string;
   }): Promise<UserProfile> => {
     const rawPass = userData.password || 'Alimran2026!';
-    const hashedPass = await hashPassword(rawPass);
     const newUser: UserProfile = {
       id: `usr-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       name: userData.name,
       arabicName: userData.arabicName || userData.name,
       email: userData.email.toLowerCase().trim(),
-      password: hashedPass,
       role: userData.role,
       phone: userData.phone,
       madrasaBranchId: 'cmc-main',
@@ -1504,11 +1503,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setAllUsers(prev => {
       const filtered = prev.filter(u => u.email.toLowerCase().trim() !== newUser.email && u.id !== newUser.id);
-      const updated = [...filtered, newUser];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
-      }
-      return updated;
+      return [...filtered, newUser];
     });
 
     let createdTeacherObj: Teacher | null = null;
@@ -1691,32 +1686,23 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, message: 'Password must be at least 4 characters long.' };
     }
 
-    const hashed = await hashPassword(newPassword);
-
-    // Update in local state
-    setAllUsers(prev => {
-      const updated = prev.map(u => (u.id === userId ? { ...u, password: hashed } : u));
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
-      }
-      return updated;
-    });
-
-    if (currentUser?.id === userId) {
-      setCurrentUserState(prev => (prev ? { ...prev, password: hashed } : null));
+    const supabase = await ensureSupabaseClient();
+    if (!supabase) {
+      return {
+        success: false,
+        message: 'Database connection is not active. Passwords can only be updated directly in the database.',
+      };
     }
 
-    // Sync to Supabase
+    // Sync directly to Supabase DB (passing targetUser so profile row is inserted if missing)
     const targetUser = allUsers.find(u => u.id === userId) || currentUser;
-    if (targetUser && targetUser.email) {
-      const dbRes = await dbUpdateUserPassword(userId, targetUser.email, newPassword, targetUser);
-      if (!dbRes.success && dbRes.error && !dbRes.error.toLowerCase().includes('not configured')) {
-        return { success: false, message: `Saved locally, but cloud DB update failed: ${dbRes.error}` };
-      }
+    const dbRes = await dbUpdateUserPassword(userId, targetUser?.email || '', newPassword, targetUser || undefined);
+    if (!dbRes.success) {
+      return { success: false, message: `Database password update failed: ${dbRes.error || 'Unknown error'}` };
     }
 
-    addNotification('Password Updated', 'Your security password has been synchronized with the cloud database.', 'announcement');
-    return { success: true, message: 'Password updated successfully across all browsers and devices.' };
+    addNotification('Password Updated', 'Your security password has been updated directly in the cloud database.', 'announcement');
+    return { success: true, message: 'Password updated successfully in the database.' };
   };
 
   const loginUser = async (
@@ -1726,154 +1712,155 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!emailOrPhone || !emailOrPhone.trim()) {
       return { success: false, message: 'Please enter your email, phone number, or username.' };
     }
+    if (!password) {
+      return { success: false, message: 'Please enter your password.' };
+    }
 
     const cleanInput = emailOrPhone.trim();
     const cleanLower = cleanInput.toLowerCase();
-    const cleanDigits = cleanInput.replace(/[^0-9+]/g, '');
-    
-    // Ensure Supabase client is initialized (including checking server config for Chrome/cross-browser)
-    const supabase = await ensureSupabaseClient();
 
-    // 1. Check Supabase Database & Auth FIRST if cloud database is configured
-    if (supabase) {
-      try {
-        // A. If identifier is an email, try direct Supabase Auth signIn
-        if (cleanLower.includes('@') && password) {
+    // Always verify credentials directly from the database (never from localStorage)
+    let supabase = await ensureSupabaseClient();
+    if (!supabase) {
+      await syncServerSupabaseConfig().catch(() => {});
+      supabase = getSupabaseClient();
+    }
+
+    if (!supabase) {
+      return {
+        success: false,
+        message: 'Database connection is not active. Unable to verify credentials from the database.',
+      };
+    }
+
+    try {
+      // 1. Query user record & password directly from database (profiles / teachers / students)
+      const dbResult = await fetchUserProfileByLoginIdentifier(cleanInput);
+
+      if (dbResult.dbError && !dbResult.found) {
+        return {
+          success: false,
+          message: `Database verification error: ${dbResult.dbError}`,
+        };
+      }
+
+      if (dbResult.found && dbResult.profile) {
+        const dbProfile = dbResult.profile;
+        if (dbProfile.status === 'inactive' || (dbProfile.status as string) === 'suspended') {
+          return {
+            success: false,
+            message: 'This account is inactive or suspended. Please contact the administrator.',
+          };
+        }
+
+        unmarkDeletedIdentifier(dbProfile.id, dbProfile.email);
+
+        let passwordVerified = false;
+
+        // Verify against the password/hash stored directly in the database table
+        if (dbResult.storedPasswordHash) {
+          passwordVerified = await verifyPassword(
+            password,
+            dbResult.storedPasswordHash,
+            dbProfile.email
+          );
+        } else if (dbProfile.email && dbProfile.email.includes('@')) {
+          // Only fall back to Supabase Auth when DB row has no password_hash column value set
           try {
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-              email: cleanLower,
-              password: password,
+            const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+              email: dbProfile.email.toLowerCase().trim(),
+              password,
             });
-
-            if (!authError && authData?.user) {
-              const authUser = authData.user;
-              unmarkDeletedIdentifier(authUser.id, cleanLower, authUser.email);
-
-              // Check profiles table for full details
-              const { data: pData } = await supabase
-                .from('profiles')
-                .select('*')
-                .or(`email.ilike.${cleanLower},id.eq.${authUser.id}`)
-                .limit(1)
-                .maybeSingle();
-
-              const verifiedUser: UserProfile = {
-                id: pData?.id || authUser.id,
-                name: pData?.full_name || authUser.user_metadata?.full_name || cleanLower.split('@')[0],
-                arabicName: pData?.arabic_name || authUser.user_metadata?.arabic_name,
-                email: pData?.email || authUser.email || cleanLower,
-                role: (pData?.role as UserRole) || (authUser.user_metadata?.role as UserRole) || 'teacher',
-                phone: pData?.phone || authUser.user_metadata?.phone || authUser.phone || '+251 911 000000',
-                madrasaBranchId: 'cmc-main',
-                madrasaBranchName: pData?.madrasa_branch_name || currentMadrasaBranch,
-                assignedClasses: pData?.assigned_classes || authUser.user_metadata?.assigned_classes || [],
-                assignedSubjects: pData?.assigned_subjects || authUser.user_metadata?.assigned_subjects || [],
-                avatarUrl: pData?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-                status: 'active',
-                password: await hashPassword(password),
-                createdAt: pData?.created_at || new Date().toISOString(),
-              };
-
-              setAllUsers(prev => {
-                const filtered = prev.filter(u => u.email.toLowerCase().trim() !== cleanLower && u.id !== verifiedUser.id);
-                const updated = [...filtered, verifiedUser];
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
-                }
-                return updated;
-              });
-
-              setCurrentUserState(verifiedUser);
-              setActiveTab('dashboard');
-               // Ensure profiles.password_hash is populated for future phone/username logins
-              if (!pData?.password_hash) {
-                dbUpdateUserPassword(verifiedUser.id, verifiedUser.email, password, verifiedUser).catch(() => {});
-              }
-              pullAllFromCloud().catch(() => {});
-
-              return {
-                success: true,
-                message: `Signed in successfully as ${verifiedUser.role.replace('_', ' ').toUpperCase()}.`,
-                source: 'supabase',
-              };
+            if (!authErr && authData?.user) {
+              passwordVerified = true;
             }
-          } catch (authE) {
-            console.warn('Direct Supabase Auth notice:', authE);
+          } catch {
+            // ignore
           }
         }
 
-        // B. Query database tables across profiles, teachers, and students
-        const dbResult = await fetchUserProfileByLoginIdentifier(cleanInput);
+        if (!passwordVerified) {
+          return {
+            success: false,
+            message: 'Incorrect password. Please verify your credentials or contact the administrator.',
+          };
+        }
 
-        if (dbResult.found && dbResult.profile) {
-          const dbProfile = dbResult.profile;
-          unmarkDeletedIdentifier(dbProfile.id, dbProfile.email);
+        const { password: _omitted, ...safeProfile } = dbProfile;
+        const verifiedUser: UserProfile = {
+          ...safeProfile,
+          status: 'active',
+        };
 
-          let passwordVerified = false;
+        // Backfill profiles.password_hash in DB only if it was missing
+        if (!dbResult.storedPasswordHash && verifiedUser.email) {
+          dbUpdateUserPassword(verifiedUser.id, verifiedUser.email, password, verifiedUser).catch(() => {});
+        }
 
-          if (password) {
-            // Check against stored password hash or stored plain password from database
-            if (dbResult.storedPasswordHash) {
-              passwordVerified = await verifyPassword(
-                password,
-                dbResult.storedPasswordHash,
-                dbProfile.email
-              );
-            }
+        setAllUsers(prev => {
+          const filtered = prev.filter(
+            u => u.email.toLowerCase().trim() !== verifiedUser.email.toLowerCase().trim() && u.id !== verifiedUser.id
+          );
+          return [...filtered, verifiedUser];
+        });
 
-            // Also attempt Supabase Auth signIn if direct hash wasn't matched
-            if (!passwordVerified && dbProfile.email && dbProfile.email.includes('@')) {
-              try {
-                const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-                  email: dbProfile.email.toLowerCase().trim(),
-                  password: password,
-                });
-                if (!authErr && authData?.user) {
-                  passwordVerified = true;
-                }
-              } catch {
-                // ignore
-              }
-            }
+        setCurrentUserState(verifiedUser);
+        setActiveTab('dashboard');
+        pullAllFromCloud().catch(() => {});
 
-            // Fallback default system credentials for initial setup
-            if (!passwordVerified && !dbResult.storedPasswordHash) {
-               const localMatch = allUsers.find(
-                u =>
-                  u.id === dbProfile.id ||
-                  (dbProfile.email && u.email?.toLowerCase().trim() === dbProfile.email.toLowerCase().trim())
-              );
-              if (localMatch?.password) {
-                passwordVerified = await verifyPassword(password, localMatch.password, localMatch.email);
-              }}
-          }
+        return {
+          success: true,
+          message: `Signed in successfully as ${verifiedUser.role.replace('_', ' ').toUpperCase()}.`,
+          source: 'supabase',
+        };
+      }
 
-          if (passwordVerified) {
-            // Successfully verified! Save profile into local state & storage for this browser
+      // 2. If identifier is an email not yet mirrored into profiles, verify via Supabase Auth directly
+      if (cleanLower.includes('@')) {
+        try {
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: cleanLower,
+            password,
+          });
+
+          if (!authError && authData?.user) {
+            const authUser = authData.user;
+            unmarkDeletedIdentifier(authUser.id, cleanLower, authUser.email);
+
+            const { data: pData } = await supabase
+              .from('profiles')
+              .select('*')
+              .or(`email.ilike."${cleanLower}",id.eq."${authUser.id}"`)
+              .limit(1)
+              .maybeSingle();
+
             const verifiedUser: UserProfile = {
-              ...dbProfile,
-              password: password ? await hashPassword(password) : dbProfile.password,
+              id: pData?.id || authUser.id,
+              name: pData?.full_name || authUser.user_metadata?.full_name || cleanLower.split('@')[0],
+              arabicName: pData?.arabic_name || authUser.user_metadata?.arabic_name,
+              email: pData?.email || authUser.email || cleanLower,
+              role: (pData?.role as UserRole) || (authUser.user_metadata?.role as UserRole) || 'teacher',
+              phone: pData?.phone || authUser.user_metadata?.phone || authUser.phone || '+251 911 000000',
+              madrasaBranchId: 'cmc-main',
+              madrasaBranchName: pData?.madrasa_branch_name || currentMadrasaBranch,
+              assignedClasses: pData?.assigned_classes || authUser.user_metadata?.assigned_classes || [],
+              assignedSubjects: pData?.assigned_subjects || authUser.user_metadata?.assigned_subjects || [],
+              avatarUrl: pData?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
               status: 'active',
+              createdAt: pData?.created_at || new Date().toISOString(),
             };
-                if (password && !dbResult.storedPasswordHash && verifiedUser.email) {
+
+            if (!pData?.password_hash) {
               dbUpdateUserPassword(verifiedUser.id, verifiedUser.email, password, verifiedUser).catch(() => {});
             }
 
             setAllUsers(prev => {
-              const filtered = prev.filter(
-                u => u.email.toLowerCase().trim() !== verifiedUser.email.toLowerCase().trim() && u.id !== verifiedUser.id
-              );
-              const updated = [...filtered, verifiedUser];
-              if (typeof window !== 'undefined') {
-                localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(updated));
-              }
-              return updated;
+              const filtered = prev.filter(u => u.email.toLowerCase().trim() !== cleanLower && u.id !== verifiedUser.id);
+              return [...filtered, verifiedUser];
             });
 
             setCurrentUserState(verifiedUser);
             setActiveTab('dashboard');
-
-            // Trigger background pull to fetch all campus data on this browser
             pullAllFromCloud().catch(() => {});
 
             return {
@@ -1881,60 +1868,23 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               message: `Signed in successfully as ${verifiedUser.role.replace('_', ' ').toUpperCase()}.`,
               source: 'supabase',
             };
-          } else if (password && dbResult.storedPasswordHash) {
-            return {
-              success: false,
-              message: 'Incorrect password. Please verify your credentials or contact the administrator.',
-            };
           }
+        } catch (authE) {
+          console.warn('Direct Supabase Auth notice:', authE);
         }
-      } catch (err) {
-        console.warn('Database login check error:', err);
       }
-    }
 
-    // 2. Check local users fallback
-     const normalizePhone = (v: string) => v.replace(/\D/g, '').replace(/^251/, '0');
-    const cleanNormDigits = cleanDigits.length >= 7 ? normalizePhone(cleanDigits) : '';
-    const found = allUsers.find( u => {
-       const uNormPhone = u.phone ? normalizePhone(u.phone) : '';
-      return (
-        u.email?.toLowerCase().trim() === cleanLower ||
-       (cleanNormDigits && uNormPhone && (uNormPhone === cleanNormDigits || uNormPhone.endsWith(cleanNormDigits.slice(-9)))) ||
-
-        u.name.toLowerCase().trim() === cleanLower ||
-        (u.name && u.name.toLowerCase().trim() === cleanLower)
-    );
-  });
-
-    if (found) {
-      unmarkDeletedIdentifier(found.id, found.email);
-
-      if (password && found.password) {
-        const isValid = await verifyPassword(password, found.password, found.email);
-        if (isValid) {
-          setCurrentUserState(found);
-          setActiveTab('dashboard');
-          return { success: true, message: `Signed in as ${found.role.replace('_', ' ').toUpperCase()}.`, source: 'local' };
-        }
-      } 
-
-     
-        return {
-          success: false,
-           message: 'Incorrect password. Please verify your credentials or contact the administrator.'
-        };
-      
-     
-    }
-
-   
       return {
         success: false,
-        message: 'No active account found with this email, phone, or username.',
-      }
-
-   
+        message: 'No active account found with this email, phone, or username in the database.',
+      };
+    } catch (err: any) {
+      console.warn('Database login check error:', err);
+      return {
+        success: false,
+        message: err?.message || 'Database verification failed. Please try again.',
+      };
+    }
   };
 
   const logoutUser = () => {
@@ -2833,7 +2783,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const nextStatus: EntranceApplicationStatus = app.assessmentResult
             ? 'approved_for_admission'
             : 'approved_for_assessment';
-          const updated:EntranceApplication = {
+          const updated: EntranceApplication = {
             ...app,
             status: nextStatus,
             adminDecision: conditionalTerms ? 'Conditional' : 'Approved',
@@ -2863,7 +2813,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntranceApplications(prev =>
       prev.map(app => {
         if (app.id === id) {
-          const updated:EntranceApplication = {
+          const updated: EntranceApplication = {
             ...app,
             status: 'rejected' as EntranceApplicationStatus,
             adminDecision: 'Rejected',
@@ -2892,7 +2842,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setEntranceApplications(prev =>
       prev.map(app => {
         if (app.id === id) {
-          const updated:EntranceApplication = {
+          const updated: EntranceApplication = {
             ...app,
             status: 'waitlisted' as EntranceApplicationStatus,
             adminDecision: 'Waitlisted',
@@ -2935,7 +2885,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ? 'result_published'
             : (app.status === 'pending' ? 'assessed' : app.status);
 
-          const updated:EntranceApplication = {
+          const updated: EntranceApplication = {
             ...app,
             status: updatedStatus,
             placementDetails: {

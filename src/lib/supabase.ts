@@ -695,78 +695,94 @@ export const syncAllToSupabase = async (
   const errors: string[] = [];
   let syncedCount = 0;
 
-  // 1. Sync Profiles / Users
+  // 1. Sync Profiles / Users (preserve existing DB password_hash — never overwrite DB passwords from stale localStorage)
   if (payload.users && payload.users.length > 0) {
     try {
-      const formatted = await Promise.all(
-        payload.users.map(async (u) => {
-          const safeHash = u.password
-            ? isPasswordHash(u.password)
-              ? u.password.trim()
-              : await hashPassword(u.password)
-            : undefined;
-          return {
-            id: u.id,
-            username: u.email.split("@")[0],
-            full_name: u.name,
-            arabic_name: u.arabicName || u.name,
-            email: u.email.toLowerCase().trim(),
-            role: u.role,
-            phone: u.phone,
-            madrasa_branch_name: u.madrasaBranchName,
-            assigned_classes: u.assignedClasses || [],
-            assigned_subjects: u.assignedSubjects || [],
-            assigned_hifz_halqah: u.assignedHifzHalqah || "",
-            avatar_url: u.avatarUrl || "",
-            status: u.status || "active",
-            password_hash: safeHash,
-          };
-        }),
-      );
-      let { error } = await supabase
+      const { data: existingDbProfiles } = await supabase
         .from("profiles")
-        .upsert(formatted, { onConflict: "id" });
-      // If error is due to missing password_hash column in existing table, fallback without password_hash
-      if (error && error.message?.toLowerCase().includes("password_hash")) {
-        const fallbackFormatted = formatted.map(
-          ({ password_hash, ...rest }) => rest,
+        .select("id, email, password_hash");
+
+      const dbByEmail = new Map<string, { id: string; hasPassword: boolean }>();
+      const dbById = new Map<string, { id: string; hasPassword: boolean }>();
+      (existingDbProfiles || []).forEach((row: any) => {
+        const hasPw = Boolean(
+          row.password_hash && String(row.password_hash).trim(),
         );
-        const retryRes = await supabase
-          .from("profiles")
-          .upsert(fallbackFormatted, { onConflict: "id" });
-        error = retryRes.error;
-      }
-      // If batch upsert failed due to idx_profiles_email unique constraint, update/insert per profile
-      if (
-        error &&
-        (error.message?.toLowerCase().includes("idx_profiles_email") ||
-          error.message?.toLowerCase().includes("duplicate key"))
-      ) {
-        let perRowError: string | null = null;
-        for (const row of formatted) {
-          const { data: existingRows } = await supabase
-            .from("profiles")
-            .select("id")
-            .ilike("email", row.email)
-            .limit(1);
-          if (existingRows && existingRows.length > 0) {
-            const { id: _ignoreId, ...updateFields } = row;
-            const { error: uErr } = await supabase
-              .from("profiles")
-              .update(updateFields)
-              .eq("id", existingRows[0].id);
-            if (uErr) perRowError = uErr.message;
-          } else {
-            const { error: iErr } = await supabase
-              .from("profiles")
-              .upsert(row, { onConflict: "id" });
-            if (iErr) perRowError = iErr.message;
-          }
+        if (row.id)
+          dbById.set(String(row.id), { id: row.id, hasPassword: hasPw });
+        if (row.email)
+          dbByEmail.set(String(row.email).toLowerCase().trim(), {
+            id: row.id,
+            hasPassword: hasPw,
+          });
+      });
+
+      let perRowError: string | null = null;
+      for (const u of payload.users) {
+        const cleanEmail = (u.email || "").toLowerCase().trim();
+        const existing =
+          (cleanEmail && dbByEmail.get(cleanEmail)) || dbById.get(u.id);
+        const safeHash = u.password
+          ? isPasswordHash(u.password)
+            ? u.password.trim()
+            : await hashPassword(u.password)
+          : undefined;
+
+        const baseFields: Record<string, any> = {
+          username:
+            cleanEmail.split("@")[0] ||
+            u.name.toLowerCase().replace(/\s+/g, "."),
+          full_name: u.name,
+          arabic_name: u.arabicName || u.name,
+          email: cleanEmail,
+          role: u.role,
+          phone: u.phone,
+          madrasa_branch_name: u.madrasaBranchName,
+          assigned_classes: u.assignedClasses || [],
+          assigned_subjects: u.assignedSubjects || [],
+          assigned_hifz_halqah: u.assignedHifzHalqah || "",
+          avatar_url: u.avatarUrl || "",
+          status: u.status || "active",
+          updated_at: new Date().toISOString(),
+        };
+
+        // Only write password_hash during bulk sync if DB doesn't already have one
+        if (safeHash && (!existing || !existing.hasPassword)) {
+          baseFields.password_hash = safeHash;
         }
-        error = perRowError ? ({ message: perRowError } as any) : null;
+
+        if (existing) {
+          let { error: uErr } = await supabase
+            .from("profiles")
+            .update(baseFields)
+            .eq("id", existing.id);
+          if (uErr && uErr.message?.toLowerCase().includes("password_hash")) {
+            const { password_hash: _drop, ...withoutHash } = baseFields;
+            const retry = await supabase
+              .from("profiles")
+              .update(withoutHash)
+              .eq("id", existing.id);
+            uErr = retry.error;
+          }
+          if (uErr) perRowError = uErr.message;
+        } else {
+          const insertRow: Record<string, any> = { id: u.id, ...baseFields };
+          let { error: iErr } = await supabase
+            .from("profiles")
+            .upsert(insertRow, { onConflict: "id" });
+          if (iErr && iErr.message?.toLowerCase().includes("password_hash")) {
+            const { password_hash: _drop, ...withoutHash } = insertRow;
+            const retry = await supabase
+              .from("profiles")
+              .upsert(withoutHash, { onConflict: "id" });
+            iErr = retry.error;
+          }
+          if (iErr) perRowError = iErr.message;
+        }
       }
-      if (error) errors.push(`Profiles: ${error.message}`);
-      else syncedCount += formatted.length;
+
+      if (perRowError) errors.push(`Profiles: ${perRowError}`);
+      else syncedCount += payload.users.length;
     } catch (e: any) {
       errors.push(`Profiles: ${e.message}`);
     }
@@ -1367,7 +1383,7 @@ export const fetchAllFromSupabase = async (): Promise<{
         .order("date", { ascending: false }),
     ]);
 
-    // Map profiles
+    // Map profiles (omit password_hash from browser directory state; passwords are verified directly against DB on login)
     const profiles: UserProfile[] = (profilesRes.data || []).map((r) => ({
       id: r.id,
       name: r.full_name,
@@ -1383,7 +1399,6 @@ export const fetchAllFromSupabase = async (): Promise<{
       assignedHifzHalqah: r.assigned_hifz_halqah || "",
       avatarUrl: r.avatar_url || "",
       status: r.status || "active",
-      password: r.password_hash || r.password || undefined,
     }));
 
     // Map students
@@ -2025,18 +2040,31 @@ export interface SupabaseAuthProfileResult {
   profile?: UserProfile;
   storedPasswordHash?: string;
   sourceTable?: "profiles" | "teachers" | "students";
+  dbError?: string;
 }
 
+const extractPasswordField = (row: any): string | undefined => {
+  if (!row) return undefined;
+  const candidate = row.password_hash ?? row.password;
+  if (typeof candidate === "string" && candidate.trim().length > 0) {
+    return candidate.trim();
+  }
+  return undefined;
+};
+
 /**
- * Look up user profile from Supabase by email, phone, username, or ID across profiles, teachers, and students
- * Enables seamless login across ANY browser or device even without local storage cache.
+ * Look up user profile directly from Supabase DB by email, phone, username, full name, or ID
+ * across profiles, teachers, and students. Never reads localStorage or local mock arrays.
  */
 export const fetchUserProfileByLoginIdentifier = async (
   identifier: string,
 ): Promise<SupabaseAuthProfileResult> => {
   const supabase = getSupabaseClient();
   if (!supabase || !identifier) {
-    return { found: false };
+    return {
+      found: false,
+      dbError: !supabase ? "Supabase client is not configured." : undefined,
+    };
   }
 
   // Security: Sanitize input to prevent PostgREST delimiter/operator injection (commas, parentheses, operators)
@@ -2055,6 +2083,8 @@ export const fetchUserProfileByLoginIdentifier = async (
     return { found: false };
   }
 
+  let lastDbError: string | undefined;
+
   try {
     // 1. Search in profiles table (fetch up to 10 matches and prefer a row with a stored password_hash)
     let query = supabase.from("profiles").select("*");
@@ -2062,20 +2092,23 @@ export const fetchUserProfileByLoginIdentifier = async (
       query = query.ilike("email", cleanLower);
     } else if (cleanPhone && cleanPhone.length >= 7) {
       query = query.or(
-        `phone.ilike.%${cleanPhone}%,username.ilike.${cleanLower},id.eq.${cleanRaw}`,
+        `phone.ilike."%${cleanPhone}%",username.ilike."${cleanLower}"`,
       );
     } else {
       query = query.or(
-        `username.ilike.${cleanLower},email.ilike.${cleanLower},full_name.ilike.${cleanLower},id.eq.${cleanRaw}`,
+        `username.ilike."${cleanLower}",email.ilike."${cleanLower}",full_name.ilike."${cleanLower}"`,
       );
     }
 
     const { data: profiles, error: pErr } = await query.limit(10);
+    if (pErr) {
+      lastDbError = pErr.message;
+    }
     if (!pErr && profiles && profiles.length > 0) {
       const r =
-        profiles.find((row: any) =>
-          Boolean(row.password_hash || row.password),
-        ) || profiles[0];
+        profiles.find((row: any) => Boolean(extractPasswordField(row))) ||
+        profiles[0];
+      const storedPass = extractPasswordField(r);
       const profile: UserProfile = {
         id: r.id,
         name: r.full_name,
@@ -2090,21 +2123,23 @@ export const fetchUserProfileByLoginIdentifier = async (
         assignedHifzHalqah: r.assigned_hifz_halqah || "",
         avatarUrl: r.avatar_url || "",
         status: r.status || "active",
-        password: r.password_hash || r.password || undefined,
       };
       return {
         found: true,
         profile,
-        storedPasswordHash: r.password_hash || r.password,
+        storedPasswordHash: storedPass,
         sourceTable: "profiles",
       };
     }
 
-    // 2. Flexible scan across profiles (handles formatted phones like '+251 911 234567' vs '0911234567' and spaced names)
-    const { data: allProfiles } = await supabase
+    // 2. Flexible scan across profiles (handles whitespace in DB email, formatted phones '+251 911 234567' vs '0911234567', and ID match)
+    const { data: allProfiles, error: allPErr } = await supabase
       .from("profiles")
       .select("*")
-      .limit(500);
+      .limit(1000);
+    if (allPErr) {
+      lastDbError = allPErr.message;
+    }
     if (allProfiles && allProfiles.length > 0) {
       const normalizeDigits = (v: string) =>
         v.replace(/\D/g, "").replace(/^251/, "0");
@@ -2133,10 +2168,11 @@ export const fetchUserProfileByLoginIdentifier = async (
 
       const matched =
         matchingProfiles.find((row: any) =>
-          Boolean(row.password_hash || row.password),
+          Boolean(extractPasswordField(row)),
         ) || matchingProfiles[0];
 
       if (matched) {
+        const storedPass = extractPasswordField(matched);
         const profile: UserProfile = {
           id: matched.id,
           name: matched.full_name,
@@ -2152,12 +2188,11 @@ export const fetchUserProfileByLoginIdentifier = async (
           assignedHifzHalqah: matched.assigned_hifz_halqah || "",
           avatarUrl: matched.avatar_url || "",
           status: matched.status || "active",
-          password: matched.password_hash || matched.password || undefined,
         };
         return {
           found: true,
           profile,
-          storedPasswordHash: matched.password_hash || matched.password,
+          storedPasswordHash: storedPass,
           sourceTable: "profiles",
         };
       }
@@ -2168,25 +2203,31 @@ export const fetchUserProfileByLoginIdentifier = async (
     if (cleanLower.includes("@")) {
       tQuery = tQuery.ilike("email", cleanLower);
     } else if (cleanPhone && cleanPhone.length >= 7) {
-      tQuery = tQuery.or(`phone.ilike.%${cleanPhone}%,id.eq.${cleanRaw}`);
+      tQuery = tQuery.or(`phone.ilike."%${cleanPhone}%"`);
     } else {
       tQuery = tQuery.or(
-        `email.ilike.${cleanLower}%,full_name.ilike.%${cleanLower}%`,
+        `email.ilike."${cleanLower}%",full_name.ilike."%${cleanLower}%"`,
       );
     }
 
-    const { data: teachers, error: tErr } = await tQuery.limit(1);
+    const { data: teachers, error: tErr } = await tQuery.limit(5);
+    if (tErr && !lastDbError) {
+      lastDbError = tErr.message;
+    }
     if (!tErr && teachers && teachers.length > 0) {
       const t = teachers[0];
-      let resolvedPasswordHash = t.password_hash || t.password;
+      let resolvedPasswordHash = extractPasswordField(t);
       if (!resolvedPasswordHash && t.email) {
-        const { data: linkedProfile } = await supabase
+        const { data: linkedProfiles } = await supabase
           .from("profiles")
-          .select("password_hash")
+          .select("*")
           .ilike("email", String(t.email).toLowerCase().trim())
-          .limit(1);
-        if (linkedProfile && linkedProfile[0]?.password_hash) {
-          resolvedPasswordHash = linkedProfile[0].password_hash;
+          .limit(10);
+        const withPw = (linkedProfiles || []).find((row: any) =>
+          Boolean(extractPasswordField(row)),
+        );
+        if (withPw) {
+          resolvedPasswordHash = extractPasswordField(withPw);
         }
       }
       const profile: UserProfile = {
@@ -2202,7 +2243,6 @@ export const fetchUserProfileByLoginIdentifier = async (
         assignedSubjects: t.subjects || [],
         avatarUrl: t.photo_url || "",
         status: t.status || "active",
-        password: resolvedPasswordHash || undefined,
       };
       return {
         found: true,
@@ -2218,15 +2258,18 @@ export const fetchUserProfileByLoginIdentifier = async (
       sQuery = sQuery.ilike("guardian_email", cleanLower);
     } else if (cleanPhone && cleanPhone.length >= 7) {
       sQuery = sQuery.or(
-        `guardian_phone.ilike.%${cleanPhone}%,admission_number.ilike.${cleanRaw}`,
+        `guardian_phone.ilike."%${cleanPhone}%",admission_number.ilike."${cleanRaw}"`,
       );
     } else {
       sQuery = sQuery.or(
-        `admission_number.ilike.${cleanRaw},first_name.ilike.%${cleanLower}%`,
+        `admission_number.ilike."${cleanRaw}",first_name.ilike."%${cleanLower}%"`,
       );
     }
 
-    const { data: students, error: sErr } = await sQuery.limit(1);
+    const { data: students, error: sErr } = await sQuery.limit(5);
+    if (sErr && !lastDbError) {
+      lastDbError = sErr.message;
+    }
     if (!sErr && students && students.length > 0) {
       const s = students[0];
       const isParent =
@@ -2235,15 +2278,21 @@ export const fetchUserProfileByLoginIdentifier = async (
       const studentEmail =
         s.guardian_email ||
         `${s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@alimran-madrasa.et`;
-      let resolvedPasswordHash = s.password_hash || s.password;
-      if (!resolvedPasswordHash && studentEmail) {
-        const { data: linkedProfile } = await supabase
+      let resolvedPasswordHash = extractPasswordField(s);
+      if (!resolvedPasswordHash) {
+        const cleanStdEmail = String(studentEmail).toLowerCase().trim();
+        const { data: linkedProfiles } = await supabase
           .from("profiles")
-          .select("password_hash")
-          .ilike("email", studentEmail.toLowerCase().trim())
-          .limit(1);
-        if (linkedProfile && linkedProfile[0]?.password_hash) {
-          resolvedPasswordHash = linkedProfile[0].password_hash;
+          .select("*")
+          .or(
+            `email.ilike."${cleanStdEmail}",id.eq."usr-${s.id}",username.ilike."${s.admission_number}"`,
+          )
+          .limit(10);
+        const withPw = (linkedProfiles || []).find((row: any) =>
+          Boolean(extractPasswordField(row)),
+        );
+        if (withPw) {
+          resolvedPasswordHash = extractPasswordField(withPw);
         }
       }
       const profile: UserProfile = {
@@ -2261,7 +2310,6 @@ export const fetchUserProfileByLoginIdentifier = async (
         assignedClasses: [s.current_class || "Class 1-A"],
         avatarUrl: s.photo_url || "",
         status: s.status || "active",
-        password: resolvedPasswordHash || undefined,
       };
       return {
         found: true,
@@ -2271,10 +2319,10 @@ export const fetchUserProfileByLoginIdentifier = async (
       };
     }
 
-    return { found: false };
-  } catch (err) {
+    return { found: false, dbError: lastDbError };
+  } catch (err: any) {
     console.warn("fetchUserProfileByLoginIdentifier error:", err);
-    return { found: false };
+    return { found: false, dbError: err?.message || "Database lookup failed" };
   }
 };
 

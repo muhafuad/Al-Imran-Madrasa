@@ -3,6 +3,7 @@
  * Provides password hashing, session integrity verification, XSS sanitization,
  * and transaction reference verification for production readiness.
  */
+import bcrypt from "bcryptjs";
 
 // Pure-JS SHA-256 implementation for environments without crypto.subtle (e.g. non-localhost HTTP)
 const sha256PureJs = (message: string): string => {
@@ -144,7 +145,7 @@ export const hashPassword = async (
   return sha256PureJs(payload);
 };
 
-// Verify plain password against stored hash, database column, or plain text
+// Verify plain password against stored hash, bcrypt hash, or direct plain text stored in DB
 export const verifyPassword = async (
   inputPassword?: string,
   storedPasswordOrHash?: string,
@@ -172,7 +173,21 @@ export const verifyPassword = async (
     return true;
   }
 
-  // 2. If stored value is a 64-char hex SHA-256 hash
+  // 2. Bcrypt hash match ($2a$, $2b$, $2y$ — e.g. PostgreSQL pgcrypto crypt() hashes)
+  if (/^\$2[aby]\$\d{2}\$/.test(cleanStored)) {
+    try {
+      if (await bcrypt.compare(rawInput, cleanStored)) return true;
+      if (
+        cleanInput !== rawInput &&
+        (await bcrypt.compare(cleanInput, cleanStored))
+      )
+        return true;
+    } catch (e) {
+      console.warn("bcrypt verification error:", e);
+    }
+  }
+
+  // 3. If stored value is a 64-char hex SHA-256 hash
   if (cleanStored.length === 64 && /^[0-9a-fA-F]+$/.test(cleanStored)) {
     const targetLower = cleanStored.toLowerCase();
 
@@ -206,22 +221,38 @@ export const verifyPassword = async (
     ) {
       return true;
     }
+
+    // Legacy accidental double-hash recovery (from older builds prior to isPasswordHash guard)
+    if (
+      sha256PureJs(`alimran_madrasa_2026:${saltedHash}`).toLowerCase() ===
+      targetLower
+    ) {
+      return true;
+    }
+    if (
+      sha256PureJs(`alimran_madrasa_2026:${unsaltedHash}`).toLowerCase() ===
+      targetLower
+    ) {
+      return true;
+    }
   }
 
-  // 3. Support legacy fallback `hash_<hex>` records created when crypto.subtle was unavailable
+  // 4. Support legacy fallback `hash_<hex>` records created when crypto.subtle was unavailable
   if (/^hash_[0-9a-fA-F]+$/i.test(cleanStored)) {
     const targetLower = cleanStored.toLowerCase();
-    if (
-      legacyFallbackHash(cleanInput, "alimran_madrasa_2026").toLowerCase() ===
-      targetLower
-    )
-      return true;
+    const l1 = legacyFallbackHash(cleanInput, "alimran_madrasa_2026");
+    if (l1.toLowerCase() === targetLower) return true;
     if (
       legacyFallbackHash(rawInput, "alimran_madrasa_2026").toLowerCase() ===
       targetLower
     )
       return true;
     if (legacyFallbackHash(cleanInput, "").toLowerCase() === targetLower)
+      return true;
+    if (
+      legacyFallbackHash(l1, "alimran_madrasa_2026").toLowerCase() ===
+      targetLower
+    )
       return true;
     if (
       email &&
