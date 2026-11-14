@@ -1709,7 +1709,10 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Sync to Supabase
     const targetUser = allUsers.find(u => u.id === userId) || currentUser;
     if (targetUser && targetUser.email) {
-      await dbUpdateUserPassword(userId, targetUser.email, newPassword);
+      const dbRes = await dbUpdateUserPassword(userId, targetUser.email, newPassword, targetUser);
+      if (!dbRes.success && dbRes.error && !dbRes.error.toLowerCase().includes('not configured')) {
+        return { success: false, message: `Saved locally, but cloud DB update failed: ${dbRes.error}` };
+      }
     }
 
     addNotification('Password Updated', 'Your security password has been synchronized with the cloud database.', 'announcement');
@@ -1782,6 +1785,10 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
               setCurrentUserState(verifiedUser);
               setActiveTab('dashboard');
+               // Ensure profiles.password_hash is populated for future phone/username logins
+              if (!pData?.password_hash) {
+                dbUpdateUserPassword(verifiedUser.id, verifiedUser.email, password, verifiedUser).catch(() => {});
+              }
               pullAllFromCloud().catch(() => {});
 
               return {
@@ -1831,13 +1838,14 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             // Fallback default system credentials for initial setup
             if (!passwordVerified && !dbResult.storedPasswordHash) {
-              passwordVerified = await verifyPassword(password);
-            }
-          } else {
-            // No password provided
-            if (!dbResult.storedPasswordHash) {
-              passwordVerified = true;
-            }
+               const localMatch = allUsers.find(
+                u =>
+                  u.id === dbProfile.id ||
+                  (dbProfile.email && u.email?.toLowerCase().trim() === dbProfile.email.toLowerCase().trim())
+              );
+              if (localMatch?.password) {
+                passwordVerified = await verifyPassword(password, localMatch.password, localMatch.email);
+              }}
           }
 
           if (passwordVerified) {
@@ -1847,6 +1855,9 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               password: password ? await hashPassword(password) : dbProfile.password,
               status: 'active',
             };
+                if (password && !dbResult.storedPasswordHash && verifiedUser.email) {
+              dbUpdateUserPassword(verifiedUser.id, verifiedUser.email, password, verifiedUser).catch(() => {});
+            }
 
             setAllUsers(prev => {
               const filtered = prev.filter(
@@ -1870,7 +1881,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               message: `Signed in successfully as ${verifiedUser.role.replace('_', ' ').toUpperCase()}.`,
               source: 'supabase',
             };
-          } else if (password) {
+          } else if (password && dbResult.storedPasswordHash) {
             return {
               success: false,
               message: 'Incorrect password. Please verify your credentials or contact the administrator.',
@@ -1883,13 +1894,18 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     // 2. Check local users fallback
-    const found = allUsers.find(
-      u =>
+     const normalizePhone = (v: string) => v.replace(/\D/g, '').replace(/^251/, '0');
+    const cleanNormDigits = cleanDigits.length >= 7 ? normalizePhone(cleanDigits) : '';
+    const found = allUsers.find( u => {
+       const uNormPhone = u.phone ? normalizePhone(u.phone) : '';
+      return (
         u.email?.toLowerCase().trim() === cleanLower ||
-        (u.phone && cleanDigits.length >= 7 && u.phone.replace(/[^0-9+]/g, '').includes(cleanDigits)) ||
+       (cleanNormDigits && uNormPhone && (uNormPhone === cleanNormDigits || uNormPhone.endsWith(cleanNormDigits.slice(-9)))) ||
+
         u.name.toLowerCase().trim() === cleanLower ||
         (u.name && u.name.toLowerCase().trim() === cleanLower)
     );
+  });
 
     if (found) {
       unmarkDeletedIdentifier(found.id, found.email);
@@ -1901,11 +1917,7 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setActiveTab('dashboard');
           return { success: true, message: `Signed in as ${found.role.replace('_', ' ').toUpperCase()}.`, source: 'local' };
         }
-      } else if (!password || !found.password) {
-        setCurrentUserState(found);
-        setActiveTab('dashboard');
-        return { success: true, message: `Signed in as ${found.role.replace('_', ' ').toUpperCase()}.`, source: 'local' };
-      }
+      } 
 
      
         return {

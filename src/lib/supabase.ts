@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { hashPassword } from "../utils/security";
+import { hashPassword, isPasswordHash } from "../utils/security";
 import type {
   Student,
   Teacher,
@@ -698,22 +698,31 @@ export const syncAllToSupabase = async (
   // 1. Sync Profiles / Users
   if (payload.users && payload.users.length > 0) {
     try {
-      const formatted = payload.users.map((u) => ({
-        id: u.id,
-        username: u.email.split("@")[0],
-        full_name: u.name,
-        arabic_name: u.arabicName || u.name,
-        email: u.email,
-        role: u.role,
-        phone: u.phone,
-        madrasa_branch_name: u.madrasaBranchName,
-        assigned_classes: u.assignedClasses || [],
-        assigned_subjects: u.assignedSubjects || [],
-        assigned_hifz_halqah: u.assignedHifzHalqah || "",
-        avatar_url: u.avatarUrl || "",
-        status: u.status || "active",
-        password_hash: u.password || undefined,
-      }));
+      const formatted = await Promise.all(
+        payload.users.map(async (u) => {
+          const safeHash = u.password
+            ? isPasswordHash(u.password)
+              ? u.password.trim()
+              : await hashPassword(u.password)
+            : undefined;
+          return {
+            id: u.id,
+            username: u.email.split("@")[0],
+            full_name: u.name,
+            arabic_name: u.arabicName || u.name,
+            email: u.email.toLowerCase().trim(),
+            role: u.role,
+            phone: u.phone,
+            madrasa_branch_name: u.madrasaBranchName,
+            assigned_classes: u.assignedClasses || [],
+            assigned_subjects: u.assignedSubjects || [],
+            assigned_hifz_halqah: u.assignedHifzHalqah || "",
+            avatar_url: u.avatarUrl || "",
+            status: u.status || "active",
+            password_hash: safeHash,
+          };
+        }),
+      );
       let { error } = await supabase
         .from("profiles")
         .upsert(formatted, { onConflict: "id" });
@@ -726,6 +735,35 @@ export const syncAllToSupabase = async (
           .from("profiles")
           .upsert(fallbackFormatted, { onConflict: "id" });
         error = retryRes.error;
+      }
+      // If batch upsert failed due to idx_profiles_email unique constraint, update/insert per profile
+      if (
+        error &&
+        (error.message?.toLowerCase().includes("idx_profiles_email") ||
+          error.message?.toLowerCase().includes("duplicate key"))
+      ) {
+        let perRowError: string | null = null;
+        for (const row of formatted) {
+          const { data: existingRows } = await supabase
+            .from("profiles")
+            .select("id")
+            .ilike("email", row.email)
+            .limit(1);
+          if (existingRows && existingRows.length > 0) {
+            const { id: _ignoreId, ...updateFields } = row;
+            const { error: uErr } = await supabase
+              .from("profiles")
+              .update(updateFields)
+              .eq("id", existingRows[0].id);
+            if (uErr) perRowError = uErr.message;
+          } else {
+            const { error: iErr } = await supabase
+              .from("profiles")
+              .upsert(row, { onConflict: "id" });
+            if (iErr) perRowError = iErr.message;
+          }
+        }
+        error = perRowError ? ({ message: perRowError } as any) : null;
       }
       if (error) errors.push(`Profiles: ${error.message}`);
       else syncedCount += formatted.length;
@@ -1758,15 +1796,20 @@ export const dbUpsertUserProfile = async (
 
   try {
     let authUid = user.id;
+    const cleanEmail = (user.email || "").toLowerCase().trim();
     const rawPass = password || user.password;
-    const hashedPass = rawPass ? await hashPassword(rawPass) : undefined;
+    const hashedPass = rawPass
+      ? isPasswordHash(rawPass)
+        ? rawPass.trim()
+        : await hashPassword(rawPass)
+      : undefined;
 
-    // 1. If password provided, attempt Supabase Auth signup first
-    if (rawPass && user.email) {
+    // 1. If a raw (non-hashed) password is provided, attempt Supabase Auth signup
+    if (rawPass && !isPasswordHash(rawPass) && cleanEmail) {
       try {
         const { data: authData, error: authError } = await supabase.auth.signUp(
           {
-            email: user.email.toLowerCase().trim(),
+            email: cleanEmail,
             password: rawPass,
             options: {
               data: {
@@ -1790,12 +1833,13 @@ export const dbUpsertUserProfile = async (
       }
     }
 
-    const payload: any = {
-      id: authUid,
-      username: user.email.split("@")[0],
+    const basePayload: any = {
+      username:
+        cleanEmail.split("@")[0] ||
+        user.name.toLowerCase().replace(/\s+/g, "."),
       full_name: user.name,
       arabic_name: user.arabicName || user.name,
-      email: user.email.toLowerCase().trim(),
+      email: cleanEmail,
       role: user.role,
       phone: user.phone || "+251 911 000000",
       madrasa_branch_name: user.madrasaBranchName || "Al-Imran CMC Main Campus",
@@ -1808,41 +1852,61 @@ export const dbUpsertUserProfile = async (
     };
 
     if (hashedPass) {
-      payload.password_hash = hashedPass;
+      basePayload.password_hash = hashedPass;
     }
 
-    // 2. Perform direct upsert into profiles
-    let { error } = await supabase
-      .from("profiles")
-      .upsert(payload, { onConflict: "id" });
-
-    // If error is due to missing password_hash column in existing table, fallback without password_hash
-    if (error && error.message?.toLowerCase().includes("password_hash")) {
-      delete payload.password_hash;
-      const retry = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" });
-      error = retry.error;
-    }
-
-    // If onConflict fails or row with this email exists under another id, update or insert
-    if (error) {
-      const { data: existing } = await supabase
+    // 2. Check if a profile already exists by email or id (avoids idx_profiles_email unique index conflict)
+    let existingId: string | null = null;
+    if (cleanEmail) {
+      const { data: existingByEmail } = await supabase
         .from("profiles")
         .select("id")
-        .or(`email.ilike.${user.email.toLowerCase().trim()},id.eq.${user.id}`)
-        .limit(1)
-        .maybeSingle();
+        .ilike("email", cleanEmail)
+        .limit(1);
+      if (existingByEmail && existingByEmail.length > 0) {
+        existingId = existingByEmail[0].id;
+      }
+    }
+    if (!existingId && authUid) {
+      const { data: existingById } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", authUid)
+        .limit(1);
+      if (existingById && existingById.length > 0) {
+        existingId = existingById[0].id;
+      }
+    }
 
-      if (existing) {
-        const updateRes = await supabase
+    let error: any = null;
+    if (existingId) {
+      // Update existing row in-place so primary key and unique email index remain valid
+      const updateRes = await supabase
+        .from("profiles")
+        .update(basePayload)
+        .eq("id", existingId);
+      error = updateRes.error;
+      if (error && error.message?.toLowerCase().includes("password_hash")) {
+        const { password_hash: _drop, ...withoutHash } = basePayload;
+        const retry = await supabase
           .from("profiles")
-          .update(payload)
-          .eq("id", existing.id);
-        error = updateRes.error;
-      } else {
-        const insertRes = await supabase.from("profiles").insert([payload]);
-        error = insertRes.error;
+          .update(withoutHash)
+          .eq("id", existingId);
+        error = retry.error;
+      }
+      authUid = existingId;
+    } else {
+      const insertPayload = { id: authUid, ...basePayload };
+      const upsertRes = await supabase
+        .from("profiles")
+        .upsert(insertPayload, { onConflict: "id" });
+      error = upsertRes.error;
+      if (error && error.message?.toLowerCase().includes("password_hash")) {
+        const { password_hash: _drop, ...withoutHash } = insertPayload;
+        const retry = await supabase
+          .from("profiles")
+          .upsert(withoutHash, { onConflict: "id" });
+        error = retry.error;
       }
     }
 
@@ -1868,36 +1932,86 @@ export const dbUpdateUserPassword = async (
   userId: string,
   email: string,
   newPassword: string,
+  fallbackProfile?: Partial<UserProfile>,
 ): Promise<{ success: boolean; error?: string }> => {
   const supabase = getSupabaseClient();
   if (!supabase) return { success: false, error: "Supabase is not configured" };
 
   try {
-    const hashedPass = await hashPassword(newPassword);
+    const cleanEmail = (email || "").toLowerCase().trim();
+    const hashedPass = isPasswordHash(newPassword)
+      ? newPassword.trim()
+      : await hashPassword(newPassword);
 
-    // 1. Update in profiles table
-    let { error: pError } = await supabase
+    // 1. Locate existing rows in profiles table first so we never silently update 0 rows
+    const matchFilter = cleanEmail
+      ? `id.eq.${userId},email.ilike.${cleanEmail}`
+      : `id.eq.${userId}`;
+
+    const { data: existingRows } = await supabase
       .from("profiles")
-      .update({
-        password_hash: hashedPass,
-        updated_at: new Date().toISOString(),
-      })
-      .or(`id.eq.${userId},email.ilike.${email.toLowerCase().trim()}`);
+      .select("id")
+      .or(matchFilter);
 
-    // If password_hash column doesn't exist, try updating without it
-    if (pError && pError.message?.toLowerCase().includes("password_hash")) {
-      const fallbackRes = await supabase
+    let pError: any = null;
+
+    if (existingRows && existingRows.length > 0) {
+      const ids = existingRows.map((r: any) => r.id);
+      const res = await supabase
         .from("profiles")
-        .update({ updated_at: new Date().toISOString() })
-        .or(`id.eq.${userId},email.ilike.${email.toLowerCase().trim()}`);
-      pError = fallbackRes.error;
+        .update({
+          password_hash: hashedPass,
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", ids);
+      pError = res.error;
+
+      if (pError && pError.message?.toLowerCase().includes("password_hash")) {
+        const fallbackRes = await supabase
+          .from("profiles")
+          .update({ updated_at: new Date().toISOString() })
+          .in("id", ids);
+        pError = fallbackRes.error;
+      }
+    } else if (fallbackProfile || cleanEmail) {
+      // User was not in profiles table yet — insert them so password is stored in DB
+      const upsertRes = await dbUpsertUserProfile(
+        {
+          id: userId,
+          name: fallbackProfile?.name || cleanEmail.split("@")[0] || "User",
+          arabicName:
+            fallbackProfile?.arabicName || fallbackProfile?.name || "مستخدم",
+          email: cleanEmail,
+          role: fallbackProfile?.role || "teacher",
+          phone: fallbackProfile?.phone || "+251 911 000000",
+          madrasaBranchId: fallbackProfile?.madrasaBranchId || "cmc-main",
+          madrasaBranchName:
+            fallbackProfile?.madrasaBranchName || "Al-Imran CMC Main Campus",
+          assignedClasses: fallbackProfile?.assignedClasses || [],
+          assignedSubjects: fallbackProfile?.assignedSubjects || [],
+          avatarUrl: fallbackProfile?.avatarUrl || "",
+          status: "active",
+        },
+        newPassword,
+      );
+      if (!upsertRes.success) {
+        pError = { message: upsertRes.error };
+      }
     }
 
-    // 2. Also try updating Supabase Auth if currently signed in user
-    try {
-      await supabase.auth.updateUser({ password: newPassword });
-    } catch {
-      // ignore
+    // 2. Only update Supabase Auth password if the currently signed-in session belongs to this exact email
+    if (!isPasswordHash(newPassword) && cleanEmail) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const sessionEmail = sessionData?.session?.user?.email
+          ?.toLowerCase()
+          .trim();
+        if (sessionEmail && sessionEmail === cleanEmail) {
+          await supabase.auth.updateUser({ password: newPassword });
+        }
+      } catch {
+        // ignore
+      }
     }
 
     return { success: !pError, error: pError?.message };
@@ -1925,12 +2039,24 @@ export const fetchUserProfileByLoginIdentifier = async (
     return { found: false };
   }
 
-  const cleanRaw = identifier.trim();
+  // Security: Sanitize input to prevent PostgREST delimiter/operator injection (commas, parentheses, operators)
+  // Allow spaces for full-name matching while stripping PostgREST control symbols
+  const sanitizePostgrestParam = (val: string): string => {
+    return val.replace(/[^a-zA-Z0-9_\-@+.\s]/g, "").trim();
+  };
+
+  const rawClean = identifier.trim();
+  const cleanRaw = sanitizePostgrestParam(rawClean);
   const cleanLower = cleanRaw.toLowerCase();
   const cleanPhone = cleanRaw.replace(/[^0-9+]/g, "");
+  const cleanDigitsOnly = cleanRaw.replace(/\D/g, "");
+
+  if (!cleanRaw) {
+    return { found: false };
+  }
 
   try {
-    // 1. Search in profiles table
+    // 1. Search in profiles table (fetch up to 10 matches and prefer a row with a stored password_hash)
     let query = supabase.from("profiles").select("*");
     if (cleanLower.includes("@")) {
       query = query.ilike("email", cleanLower);
@@ -1940,13 +2066,16 @@ export const fetchUserProfileByLoginIdentifier = async (
       );
     } else {
       query = query.or(
-        `username.ilike.${cleanLower},email.ilike.${cleanLower},id.eq.${cleanRaw}`,
+        `username.ilike.${cleanLower},email.ilike.${cleanLower},full_name.ilike.${cleanLower},id.eq.${cleanRaw}`,
       );
     }
 
-    const { data: profiles, error: pErr } = await query.limit(1);
+    const { data: profiles, error: pErr } = await query.limit(10);
     if (!pErr && profiles && profiles.length > 0) {
-      const r = profiles[0];
+      const r =
+        profiles.find((row: any) =>
+          Boolean(row.password_hash || row.password),
+        ) || profiles[0];
       const profile: UserProfile = {
         id: r.id,
         name: r.full_name,
@@ -1971,102 +2100,23 @@ export const fetchUserProfileByLoginIdentifier = async (
       };
     }
 
-    // 2. Search in teachers table
-    let tQuery = supabase.from("teachers").select("*");
-    if (cleanLower.includes("@")) {
-      tQuery = tQuery.ilike("email", cleanLower);
-    } else if (cleanPhone && cleanPhone.length >= 7) {
-      tQuery = tQuery.or(`phone.ilike.%${cleanPhone}%,id.eq.${cleanRaw}`);
-    } else {
-      tQuery = tQuery.or(
-        `email.ilike.${cleanLower}%,full_name.ilike.%${cleanLower}%`,
-      );
-    }
-
-    const { data: teachers, error: tErr } = await tQuery.limit(1);
-    if (!tErr && teachers && teachers.length > 0) {
-      const t = teachers[0];
-      const profile: UserProfile = {
-        id: t.id,
-        name: t.full_name,
-        arabicName: t.arabic_name || t.full_name,
-        email: t.email,
-        role: (t.role as any) || "teacher",
-        phone: t.phone || "",
-        madrasaBranchId: "cmc-main",
-        madrasaBranchName: "Al-Imran CMC Main Campus",
-        assignedClasses: t.assigned_classes || [],
-        assignedSubjects: t.subjects || [],
-        avatarUrl: t.photo_url || "",
-        status: t.status || "active",
-        password: t.password_hash || t.password || undefined,
-      };
-      return {
-        found: true,
-        profile,
-        storedPasswordHash: t.password_hash || t.password,
-        sourceTable: "teachers",
-      };
-    }
-
-    // 3. Search in students table
-    let sQuery = supabase.from("students").select("*");
-    if (cleanLower.includes("@")) {
-      sQuery = sQuery.ilike("guardian_email", cleanLower);
-    } else if (cleanPhone && cleanPhone.length >= 7) {
-      sQuery = sQuery.or(
-        `guardian_phone.ilike.%${cleanPhone}%,admission_number.ilike.${cleanRaw}`,
-      );
-    } else {
-      sQuery = sQuery.or(
-        `admission_number.ilike.${cleanRaw},first_name.ilike.%${cleanLower}%`,
-      );
-    }
-
-    const { data: students, error: sErr } = await sQuery.limit(1);
-    if (!sErr && students && students.length > 0) {
-      const s = students[0];
-      const isParent =
-        cleanLower.includes("parent") ||
-        (cleanPhone && (s.guardian_phone || "").includes(cleanPhone));
-      const profile: UserProfile = {
-        id: `usr-${s.id}`,
-        studentId: s.id,
-        name: isParent
-          ? s.guardian_name || `${s.first_name}'s Guardian`
-          : `${s.first_name} ${s.last_name}`,
-        arabicName: s.arabic_name,
-        email:
-          s.guardian_email ||
-          `${s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@alimran-madrasa.et`,
-        role: isParent ? "parent" : "student",
-        phone: s.guardian_phone || "",
-        madrasaBranchId: "cmc-main",
-        madrasaBranchName: "Al-Imran CMC Main Campus",
-        assignedClasses: [s.current_class || "Class 1-A"],
-        avatarUrl: s.photo_url || "",
-        status: s.status || "active",
-        password: s.password_hash || s.password || undefined,
-      };
-      return {
-        found: true,
-        profile,
-        storedPasswordHash: s.password_hash || s.password,
-        sourceTable: "students",
-      };
-    }
-
-    // 4. Fallback: Full table search across profiles with flexible matching
+    // 2. Flexible scan across profiles (handles formatted phones like '+251 911 234567' vs '0911234567' and spaced names)
     const { data: allProfiles } = await supabase
       .from("profiles")
       .select("*")
       .limit(500);
     if (allProfiles && allProfiles.length > 0) {
-      const matched = allProfiles.find((p: any) => {
+      const normalizeDigits = (v: string) =>
+        v.replace(/\D/g, "").replace(/^251/, "0");
+      const inputNormPhone =
+        cleanDigitsOnly.length >= 7 ? normalizeDigits(cleanDigitsOnly) : "";
+
+      const matchingProfiles = allProfiles.filter((p: any) => {
         const pEmail = (p.email || "").toLowerCase().trim();
         const pName = (p.full_name || "").toLowerCase().trim();
         const pUsername = (p.username || "").toLowerCase().trim();
-        const pPhone = (p.phone || "").replace(/[^0-9+]/g, "");
+        const pDigits = (p.phone || "").replace(/\D/g, "");
+        const pNormPhone = pDigits.length >= 7 ? normalizeDigits(pDigits) : "";
         const pId = (p.id || "").toLowerCase().trim();
 
         return (
@@ -2074,13 +2124,17 @@ export const fetchUserProfileByLoginIdentifier = async (
           (pUsername && pUsername === cleanLower) ||
           (pName && pName === cleanLower) ||
           pId === cleanLower ||
-          (cleanPhone &&
-            cleanPhone.length >= 7 &&
-            pPhone.includes(cleanPhone)) ||
-          (pUsername && cleanLower.includes(pUsername)) ||
-          (pName && cleanLower.includes(pName))
+          (inputNormPhone &&
+            pNormPhone &&
+            (pNormPhone === inputNormPhone ||
+              pNormPhone.endsWith(inputNormPhone.slice(-9))))
         );
       });
+
+      const matched =
+        matchingProfiles.find((row: any) =>
+          Boolean(row.password_hash || row.password),
+        ) || matchingProfiles[0];
 
       if (matched) {
         const profile: UserProfile = {
@@ -2107,6 +2161,114 @@ export const fetchUserProfileByLoginIdentifier = async (
           sourceTable: "profiles",
         };
       }
+    }
+
+    // 3. Search in teachers table
+    let tQuery = supabase.from("teachers").select("*");
+    if (cleanLower.includes("@")) {
+      tQuery = tQuery.ilike("email", cleanLower);
+    } else if (cleanPhone && cleanPhone.length >= 7) {
+      tQuery = tQuery.or(`phone.ilike.%${cleanPhone}%,id.eq.${cleanRaw}`);
+    } else {
+      tQuery = tQuery.or(
+        `email.ilike.${cleanLower}%,full_name.ilike.%${cleanLower}%`,
+      );
+    }
+
+    const { data: teachers, error: tErr } = await tQuery.limit(1);
+    if (!tErr && teachers && teachers.length > 0) {
+      const t = teachers[0];
+      let resolvedPasswordHash = t.password_hash || t.password;
+      if (!resolvedPasswordHash && t.email) {
+        const { data: linkedProfile } = await supabase
+          .from("profiles")
+          .select("password_hash")
+          .ilike("email", String(t.email).toLowerCase().trim())
+          .limit(1);
+        if (linkedProfile && linkedProfile[0]?.password_hash) {
+          resolvedPasswordHash = linkedProfile[0].password_hash;
+        }
+      }
+      const profile: UserProfile = {
+        id: t.id,
+        name: t.full_name,
+        arabicName: t.arabic_name || t.full_name,
+        email: t.email,
+        role: (t.role as any) || "teacher",
+        phone: t.phone || "",
+        madrasaBranchId: "cmc-main",
+        madrasaBranchName: "Al-Imran CMC Main Campus",
+        assignedClasses: t.assigned_classes || [],
+        assignedSubjects: t.subjects || [],
+        avatarUrl: t.photo_url || "",
+        status: t.status || "active",
+        password: resolvedPasswordHash || undefined,
+      };
+      return {
+        found: true,
+        profile,
+        storedPasswordHash: resolvedPasswordHash,
+        sourceTable: "teachers",
+      };
+    }
+
+    // 4. Search in students table
+    let sQuery = supabase.from("students").select("*");
+    if (cleanLower.includes("@")) {
+      sQuery = sQuery.ilike("guardian_email", cleanLower);
+    } else if (cleanPhone && cleanPhone.length >= 7) {
+      sQuery = sQuery.or(
+        `guardian_phone.ilike.%${cleanPhone}%,admission_number.ilike.${cleanRaw}`,
+      );
+    } else {
+      sQuery = sQuery.or(
+        `admission_number.ilike.${cleanRaw},first_name.ilike.%${cleanLower}%`,
+      );
+    }
+
+    const { data: students, error: sErr } = await sQuery.limit(1);
+    if (!sErr && students && students.length > 0) {
+      const s = students[0];
+      const isParent =
+        cleanLower.includes("parent") ||
+        (cleanPhone && (s.guardian_phone || "").includes(cleanPhone));
+      const studentEmail =
+        s.guardian_email ||
+        `${s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, "")}@alimran-madrasa.et`;
+      let resolvedPasswordHash = s.password_hash || s.password;
+      if (!resolvedPasswordHash && studentEmail) {
+        const { data: linkedProfile } = await supabase
+          .from("profiles")
+          .select("password_hash")
+          .ilike("email", studentEmail.toLowerCase().trim())
+          .limit(1);
+        if (linkedProfile && linkedProfile[0]?.password_hash) {
+          resolvedPasswordHash = linkedProfile[0].password_hash;
+        }
+      }
+      const profile: UserProfile = {
+        id: `usr-${s.id}`,
+        studentId: s.id,
+        name: isParent
+          ? s.guardian_name || `${s.first_name}'s Guardian`
+          : `${s.first_name} ${s.last_name}`,
+        arabicName: s.arabic_name,
+        email: studentEmail,
+        role: isParent ? "parent" : "student",
+        phone: s.guardian_phone || "",
+        madrasaBranchId: "cmc-main",
+        madrasaBranchName: "Al-Imran CMC Main Campus",
+        assignedClasses: [s.current_class || "Class 1-A"],
+        avatarUrl: s.photo_url || "",
+        status: s.status || "active",
+        password: resolvedPasswordHash || undefined,
+      };
+      return {
+        found: true,
+        profile,
+        storedPasswordHash: resolvedPasswordHash,
+        sourceTable: "students",
+      };
     }
 
     return { found: false };
