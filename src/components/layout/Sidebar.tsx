@@ -25,7 +25,7 @@ import {
   Database,
   CheckCircle2,
 } from 'lucide-react';
-import type { UserRole } from '../../types';
+import { type UserRole } from '../../types';
 import { UserManagementModal } from '../auth/UserManagementModal';
 import { SupabaseConnectModal } from '../common/SupabaseConnectModal';
 import { canViewDatabaseBanner } from '../../utils/permissions';
@@ -379,9 +379,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <UserManagementModal onClose={() => setShowUserModal(false)} />
       )}
 
-      {showSupabaseModal && (
-        <SupabaseConnectModal isOpen={showSupabaseModal} onClose={() => setShowSupabaseModal(false)} />
-      )}
+      <SupabaseConnectModal isOpen={showSupabaseModal} onClose={() => setShowSupabaseModal(false)} />
     </>
   );
 };

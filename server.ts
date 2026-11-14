@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -58,22 +59,73 @@ app.get("/api/supabase-config", (req, res) => {
 });
 
 app.post("/api/supabase-config", (req, res) => {
+  // Security: Check admin secret if configured on server
+  const adminSecret = process.env.ADMIN_SETUP_KEY || process.env.ADMIN_SECRET;
+  if (adminSecret) {
+    const providedKey =
+      req.headers["x-admin-key"] ||
+      req.headers["authorization"]?.replace(/^Bearer\s+/i, "");
+    if (providedKey !== adminSecret) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Unauthorized: Valid Admin Key required to update server configuration",
+        });
+    }
+  }
+
   const { url, anonKey, autoSync } = req.body || {};
   if (!url || !anonKey) {
     return res.status(400).json({ error: "URL and Anon Key are required" });
   }
 
+  const trimmedUrl = String(url).trim();
+  const trimmedKey = String(anonKey).trim();
+
+  // Security: Prevent SSRF / local network targeting (must be https:// URL)
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+      return res
+        .status(400)
+        .json({ error: "Invalid URL protocol. Must use HTTPS." });
+    }
+    // Disallow link-local or internal cloud metadata addresses
+    if (
+      parsedUrl.hostname === "169.254.169.254" ||
+      parsedUrl.hostname === "metadata.google.internal" ||
+      parsedUrl.hostname.startsWith("10.") ||
+      parsedUrl.hostname.startsWith("192.168.") ||
+      parsedUrl.hostname.startsWith("127.") ||
+      parsedUrl.hostname === "localhost"
+    ) {
+      return res
+        .status(400)
+        .json({
+          error:
+            "Invalid Supabase URL: Private network hosts are not permitted.",
+        });
+    }
+  } catch {
+    return res.status(400).json({ error: "Invalid Supabase URL format." });
+  }
+
+  if (trimmedKey.length < 20) {
+    return res.status(400).json({ error: "Invalid Supabase Anon Key format." });
+  }
+
   try {
     const configData = {
-      url: String(url).trim(),
-      anonKey: String(anonKey).trim(),
+      url: trimmedUrl,
+      anonKey: trimmedKey,
       autoSync: autoSync !== false,
       updatedAt: new Date().toISOString(),
     };
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(configData, null, 2), "utf-8");
     return res.json({
       success: true,
-      message: "Supabase configuration saved to server",
+      message: "Supabase configuration saved securely to server",
     });
   } catch (err: any) {
     console.error("Error saving config file:", err);

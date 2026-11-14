@@ -838,8 +838,8 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Check Supabase availability on mount, auto-hydrate from database, and listen to real-time events
   useEffect(() => {
-    const configured = isSupabaseConfigured();
-    setIsSupabaseActive(configured);
+    let isMounted = true;
+    let unsubscribe: (() => void) | undefined;
 
     // Listen for database operational errors
     const handleDbWarning = (e: any) => {
@@ -856,12 +856,12 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       window.addEventListener('madrasa-db-sync-warning', handleDbWarning);
     }
 
-    if (configured) {
+    const startCloudSync = () => {
       // Auto-pull live database records on initial application load
       pullAllFromCloud();
 
       // Subscribe to real-time Postgres changes across all tables
-      const unsubscribe = subscribeToDatabaseChanges((tableName, eventType) => {
+       unsubscribe = subscribeToDatabaseChanges((tableName, eventType) => {
         console.log(`[Supabase Realtime] Event: ${eventType} on table: ${tableName}`);
         // Refresh cloud state on remote table changes
         fetchAllFromSupabase().then((res) => {
@@ -915,15 +915,26 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
       });
 
-      return () => {
-        if (typeof unsubscribe === 'function') unsubscribe();
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('madrasa-db-sync-warning', handleDbWarning);
+      const configured = isSupabaseConfigured();
+    setIsSupabaseActive(configured);
+
+    if (configured) {
+      startCloudSync();
+    } else {
+      // Silently check backend server / environment config so end-users never have to enter Supabase keys
+      syncServerSupabaseConfig().then((synced) => {
+        if (!isMounted) return;
+        if (synced || isSupabaseConfigured()) {
+          setIsSupabaseActive(true);
+          startCloudSync();
         }
-      };
+      }).catch(() => {});
     }
+  }
 
     return () => {
+          isMounted = false;
+      if (typeof unsubscribe === 'function') unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('madrasa-db-sync-warning', handleDbWarning);
       }
@@ -1896,23 +1907,22 @@ export const MadrasaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return { success: true, message: `Signed in as ${found.role.replace('_', ' ').toUpperCase()}.`, source: 'local' };
       }
 
-      if (!supabase) {
+     
         return {
           success: false,
-          message: 'Incorrect password for local demo account. Note: Supabase Cloud Database is not connected on this browser. Click "Connect Supabase" in DB Setup to sign in with cloud credentials.',
+           message: 'Incorrect password. Please verify your credentials or contact the administrator.'
         };
-      }
-      return { success: false, message: 'Incorrect password. Please verify your credentials or contact the administrator.' };
+      
+     
     }
 
-    if (!supabase) {
+   
       return {
         success: false,
-        message: 'Account not found locally. To sign in with your Supabase cloud credentials on Chrome, please click "Connect Database" to link your Supabase project.',
-      };
-    }
+        message: 'No active account found with this email, phone, or username.',
+      }
 
-    return { success: false, message: 'No active account found with this email, phone, or username in the database.' };
+   
   };
 
   const logoutUser = () => {
