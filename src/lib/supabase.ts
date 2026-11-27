@@ -1,6 +1,11 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { hashPassword, isPasswordHash } from "../utils/security";
 import { idbGet, idbSet } from "./indexedDb";
+import {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  hasCodeSupabaseCredentials,
+} from "../config/supabaseConfig";
 import type {
   Student,
   Teacher,
@@ -85,18 +90,21 @@ const emitSupabaseConfigUpdated = (active: boolean) => {
 };
 
 export const getStoredSupabaseConfig = () => {
+  const codeUrl = sanitizeSupabaseUrl(SUPABASE_URL);
+  const codeKey = sanitizeSupabaseKey(SUPABASE_ANON_KEY);
+
   if (typeof window === "undefined") {
-    return { url: "", anonKey: "", autoSync: true, projectRef: null };
+    return {
+      url: codeUrl,
+      anonKey: codeKey,
+      autoSync: true,
+      projectRef: extractSupabaseProjectRef(codeUrl),
+    };
   }
-  const metaEnv = (import.meta as any)?.env || {};
+
   const rawUrl =
-    localStorage.getItem(STORAGE_SUPABASE_URL_KEY) ||
-    metaEnv.VITE_SUPABASE_URL ||
-    "";
-  const rawKey =
-    localStorage.getItem(STORAGE_SUPABASE_KEY) ||
-    metaEnv.VITE_SUPABASE_ANON_KEY ||
-    "";
+    codeUrl || localStorage.getItem(STORAGE_SUPABASE_URL_KEY) || "";
+  const rawKey = codeKey || localStorage.getItem(STORAGE_SUPABASE_KEY) || "";
   const autoSync = localStorage.getItem(STORAGE_AUTO_SYNC_KEY) !== "false";
 
   const url = sanitizeSupabaseUrl(rawUrl);
@@ -174,6 +182,12 @@ export const saveSupabaseConfig = async (
  */
 export const syncServerSupabaseConfig = async (): Promise<boolean> => {
   if (typeof window === "undefined") return false;
+
+  // If credentials are already provided via .env / code config, no server sync needed
+  if (hasCodeSupabaseCredentials()) {
+    emitSupabaseConfigUpdated(true);
+    return true;
+  }
 
   const current = getStoredSupabaseConfig();
   const hasLocal = Boolean(
