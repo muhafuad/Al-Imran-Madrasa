@@ -60,6 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     isSyncing,
     t,
     language,
+    dir,
   } = useMadrasa();
 
   const [showUserModal, setShowUserModal] = useState(false);
@@ -255,19 +256,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed lg:static top-0 bottom-0 left-0 z-40 w-64 lg:w-72 bg-slate-900 dark:bg-slate-950 text-slate-200 flex-shrink-0 flex flex-col justify-between border-r border-slate-800 min-h-[calc(100vh-60px)] select-none no-print transition-transform duration-200 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed lg:static top-0 bottom-0 start-0 z-50 lg:z-auto w-72 max-w-[85vw] bg-slate-900 dark:bg-slate-950 text-slate-200 flex-shrink-0 flex flex-col justify-between border-e border-slate-800 h-dvh lg:h-auto lg:min-h-[calc(100vh-60px)] select-none no-print transition-transform duration-200 ease-in-out ${
+          isOpen
+            ? 'translate-x-0'
+            : dir === 'rtl'
+            ? 'translate-x-full lg:translate-x-0'
+            : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Navigation List */}
-        <div className="p-3 lg:p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-140px)]">
+        <div className="flex-1 min-h-0 p-3 lg:p-4 space-y-1 overflow-y-auto">
           {/* Header on mobile with close button */}
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 lg:hidden">
             <span className="text-xs font-bold text-slate-300">Navigation Menu</span>
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+                aria-label="Close navigation menu"
               >
                 <X className="w-5 h-5" />
               </button>

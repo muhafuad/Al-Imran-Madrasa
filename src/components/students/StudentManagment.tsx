@@ -661,31 +661,31 @@ export const StudentManagement: React.FC = () => {
 
       {/* Student Details Drawer Modal */}
       {isDetailOpen && selectedStudent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[92dvh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-4">
-                <div className="relative group">
+            <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="relative group shrink-0">
                   <img
                     src={selectedStudent.photoUrl}
                     alt={selectedStudent.firstName}
-                    className="w-16 h-16 rounded-2xl object-cover ring-4 ring-emerald-500/20 shadow-sm"
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover ring-4 ring-emerald-500/20 shadow-sm"
                   />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                       {selectedStudent.firstName} {selectedStudent.lastName}
                     </h2>
                     <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                       {selectedStudent.status}
                     </span>
                   </div>
-                  <p className="text-base font-arabic font-bold text-emerald-800 dark:text-emerald-400 mt-0.5">
+                  <p className="text-sm sm:text-base font-arabic font-bold text-emerald-800 dark:text-emerald-400 mt-0.5">
                     {selectedStudent.arabicName}
                   </p>
-                  <p className="text-xs text-slate-400 font-mono">
+                  <p className="text-xs text-slate-400 font-mono break-all">
                     ID: {selectedStudent.admissionNumber} • Enrolled: {selectedStudent.enrollmentDate}
                   </p>
                 </div>
@@ -693,7 +693,7 @@ export const StudentManagement: React.FC = () => {
 
               <button
                 onClick={() => setIsDetailOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -719,10 +719,10 @@ export const StudentManagement: React.FC = () => {
             )}
 
             {/* Sub Tabs */}
-            <div className="flex items-center gap-2 border-b border-slate-100 my-4 text-xs font-bold">
+            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 my-4 text-xs font-bold overflow-x-auto no-scrollbar whitespace-nowrap">
               <button
                 onClick={() => setDetailTab('profile')}
-                className={`pb-2 px-3 transition-colors border-b-2 ${
+                className={`pb-2 px-3 shrink-0 transition-colors border-b-2 ${
                   detailTab === 'profile'
                     ? 'border-emerald-600 text-emerald-700'
                     : 'border-transparent text-slate-400 hover:text-slate-700'
@@ -755,7 +755,7 @@ export const StudentManagement: React.FC = () => {
             {/* Tab Contents */}
             {detailTab === 'profile' && (
               <div className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-slate-50 p-3.5 sm:p-4 rounded-xl">
                   <div>
                     <span className="text-slate-400 block font-semibold">Date of Birth</span>
                     <span className="font-bold text-slate-800">{selectedStudent.dob} ({selectedStudent.gender})</span>
@@ -774,11 +774,11 @@ export const StudentManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-4 bg-emerald-50/60 rounded-xl border border-emerald-200">
+                <div className="p-3.5 sm:p-4 bg-emerald-50/60 rounded-xl border border-emerald-200">
                   <h3 className="font-bold text-emerald-950 mb-2 flex items-center gap-1.5">
-                    <Phone className="w-4 h-4 text-emerald-700" /> Guardian & Residence Information (Addis Ababa)
+                    <Phone className="w-4 h-4 text-emerald-700 shrink-0" /> Guardian & Residence Information (Addis Ababa)
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 text-slate-700">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-700">
                     <div>
                       <span className="text-slate-500 font-semibold block">Guardian Name</span>
                       <span className="font-bold text-slate-900">{selectedStudent.guardianName} ({selectedStudent.guardianRelationship})</span>
@@ -787,7 +787,7 @@ export const StudentManagement: React.FC = () => {
                       <span className="text-slate-500 font-semibold block">Phone Number</span>
                       <span className="font-bold text-slate-900">{selectedStudent.guardianPhone}</span>
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <span className="text-slate-500 font-semibold block">Sub-City & Physical Address</span>
                       <span className="font-medium text-slate-900">{selectedStudent.address} ({selectedStudent.subCity}, {selectedStudent.woreda})</span>
                     </div>
@@ -836,8 +836,8 @@ export const StudentManagement: React.FC = () => {
             )}
 
             {/* Modal Footer Actions */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => {
                     setIsDetailOpen(false);
@@ -879,14 +879,14 @@ export const StudentManagement: React.FC = () => {
 
       {/* Printable Student ID Card Modal (Front & Back) */}
       {isIdCardOpen && selectedStudent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 no-print">
-              <div>
-                <h3 className="font-black text-slate-900 text-base">Al-Imran Official Student ID Card</h3>
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in duration-150 my-auto">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 mb-4 no-print">
+              <div className="min-w-0">
+                <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base">Al-Imran Official Student ID Card</h3>
                 <p className="text-xs text-slate-500">Official student identity card with verification QR code</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {isPrintIdAuthorized ? (
                   <button
                     onClick={handlePrint}
@@ -913,7 +913,7 @@ export const StudentManagement: React.FC = () => {
             {/* ID Card Graphics (Card Front & Back) */}
             <div className="space-y-4 flex flex-col items-center">
               {/* ID Card Front */}
-              <div className="w-[340px] sm:w-[380px] h-[230px] rounded-2xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 text-white p-4 shadow-xl border-2 border-amber-400/40 relative overflow-hidden flex flex-col justify-between select-none">
+              <div className="w-full max-w-[360px] min-h-[220px] h-auto sm:h-[230px] rounded-2xl bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-950 text-white p-3.5 sm:p-4 shadow-xl border-2 border-amber-400/40 relative overflow-hidden flex flex-col justify-between select-none">
                 {/* Islamic Star background watermark */}
                 <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-emerald-700/20 rounded-full blur-xl pointer-events-none" />
 
@@ -964,7 +964,7 @@ export const StudentManagement: React.FC = () => {
               </div>
 
               {/* ID Card Back */}
-              <div className="w-[340px] sm:w-[380px] h-[230px] rounded-2xl bg-slate-900 text-slate-100 p-4 shadow-xl border border-slate-700 relative overflow-hidden flex flex-col justify-between select-none">
+              <div className="w-full max-w-[360px] min-h-[210px] h-auto sm:h-[230px] rounded-2xl bg-slate-900 text-slate-100 p-3.5 sm:p-4 shadow-xl border border-slate-700 relative overflow-hidden flex flex-col justify-between select-none">
                 <div className="text-[10px] space-y-1">
                   <span className="font-bold text-amber-400 block uppercase tracking-wider">
                     Emergency & Return Instructions
@@ -1002,8 +1002,8 @@ export const StudentManagement: React.FC = () => {
 
       {/* New Student Admission Form Modal */}
       {isRegisterOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in-95 duration-150 my-auto text-slate-900 dark:text-slate-100">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full max-h-[92dvh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-150 my-auto text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <div>
                 <h2 className="text-lg font-black text-slate-900 dark:text-white">New Student Admission (Ethiopia)</h2>
@@ -1229,8 +1229,8 @@ export const StudentManagement: React.FC = () => {
 
       {/* Edit Student Modal */}
       {isEditOpen && editingStudent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[92dvh] overflow-y-auto my-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-xl">

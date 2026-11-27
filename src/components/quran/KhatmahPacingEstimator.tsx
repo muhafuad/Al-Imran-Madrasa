@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMadrasa } from '../../context/MadrasaContext';
-import type { PacingTargetCalculation } from '../../types/quranTypes';
+import {type PacingTargetCalculation } from '../../types/quranTypes';
 import {
   TrendingUp,
   Award,
@@ -115,7 +115,7 @@ export const KhatmahPacingEstimator: React.FC = () => {
         </div>
 
         {/* Graduation Forecast Callout */}
-        <div className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20 text-center min-w-[240px]">
+        <div className="bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/20 text-center w-full lg:w-auto min-w-0 sm:min-w-[240px]">
           <span className="text-xs text-amber-300 font-bold block uppercase tracking-wider">
             Projected Khatmah Graduation
           </span>
@@ -173,7 +173,7 @@ export const KhatmahPacingEstimator: React.FC = () => {
 
           {/* Daily Pace Slider */}
           <div className="space-y-2 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between text-xs font-bold">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-bold">
               <span className="text-slate-700 dark:text-slate-300">Daily Sabaq Memorization Pace:</span>
               <span className="font-mono text-indigo-600 dark:text-indigo-400 text-sm">
                 {dailyPacePages} Page(s) / Day ({dailyPacePages * 15} lines)
@@ -198,7 +198,7 @@ export const KhatmahPacingEstimator: React.FC = () => {
 
           {/* Weekly Study Days */}
           <div className="space-y-2 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between text-xs font-bold">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-bold">
               <span className="text-slate-700 dark:text-slate-300">Weekly Madrasa Study Days:</span>
               <span className="font-mono text-indigo-600 dark:text-indigo-400 text-sm">
                 {weeklyStudyDays} Days / Week

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMadrasa } from '../../context/MadrasaContext';
 import { SURAHS_LIST } from '../../data/mockData';
-import type { MemorizationQuality } from '../../types';
+import {type MemorizationQuality } from '../../types';
 import { JuzCompletionJourney } from './JuzCompletionJourney';
 import { TajweedVoiceRecorder } from './TajweedVoiceRecorder';
 import { SabaqSabqiManzilManager } from './SabaqSabqiManzilManager';
@@ -66,7 +66,25 @@ export const QuranMemorizationModule: React.FC = () => {
   const [tajweedScore, setTajweedScore] = useState<number>(95);
   const [fluencyScore, setFluencyScore] = useState<number>(95);
   const [teacherNotes, setTeacherNotes] = useState<string>('Excellent recitation with proper Ghunnah and Madd.');
-  const [activeTabSub, setActiveTabSub] = useState<'juz_journey' | 'sabaq_3tier' | 'voice_studio' | 'pacing' | 'quick_logger' | 'history' | 'surahs'>('juz_journey');
+  const [activeTabSub, setActiveTabSub] = useState<'juz_journey' | 'sabaq_3tier' | 'voice_studio' | 'pacing' | 'quick_logger' | 'history' | 'surahs'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('alimran_hifz_active_subtab') || localStorage.getItem('alimran_hifz_active_subtab');
+      if (saved && ['juz_journey', 'sabaq_3tier', 'voice_studio', 'pacing', 'quick_logger', 'history', 'surahs'].includes(saved)) {
+        return saved as any;
+      }
+    }
+    return 'juz_journey';
+  });
+
+  const handleSubTabChange = (tab: 'juz_journey' | 'sabaq_3tier' | 'voice_studio' | 'pacing' | 'quick_logger' | 'history' | 'surahs') => {
+    setActiveTabSub(tab);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('alimran_hifz_active_subtab', tab);
+        localStorage.setItem('alimran_hifz_active_subtab', tab);
+      } catch {}
+    }
+  };
   const [surahSearch, setSurahSearch] = useState('');
   const [, setAudioTick] = useState(0);
 
@@ -136,9 +154,9 @@ export const QuranMemorizationModule: React.FC = () => {
       />
 
       {/* Top Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
+      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-3xl p-4 sm:p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-amber-950">
               Qur'an Memorization Department • Phase 2
             </span>
@@ -146,7 +164,7 @@ export const QuranMemorizationModule: React.FC = () => {
               قسم تحفيظ القرآن الكريم والإقراء بالسند المتصل
             </span>
           </div>
-          <h1 className="text-2xl font-black font-arabic mt-1">
+          <h1 className="text-xl sm:text-2xl font-black font-arabic mt-1.5">
             متابعة الحفظ اليومي، المراجعة الصغرى، والإقراء بالسند
           </h1>
           <p className="text-xs text-slate-300 max-w-xl leading-relaxed mt-1">
@@ -155,7 +173,7 @@ export const QuranMemorizationModule: React.FC = () => {
         </div>
 
         {/* Quick Ijazah Banner */}
-        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 flex items-center gap-3">
+        <div className="bg-white/10 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-white/20 flex items-center gap-3 shrink-0 w-full md:w-auto">
           <div className="p-2.5 bg-amber-400 text-amber-950 rounded-xl font-bold">
             <Award className="w-6 h-6" />
           </div>
@@ -169,10 +187,10 @@ export const QuranMemorizationModule: React.FC = () => {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap sm:flex-wrap bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <button
-          onClick={() => setActiveTabSub('juz_journey')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('juz_journey')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'juz_journey'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -183,8 +201,8 @@ export const QuranMemorizationModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTabSub('sabaq_3tier')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('sabaq_3tier')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'sabaq_3tier'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -195,8 +213,8 @@ export const QuranMemorizationModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTabSub('voice_studio')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('voice_studio')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'voice_studio'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -207,8 +225,8 @@ export const QuranMemorizationModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTabSub('pacing')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('pacing')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'pacing'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -220,8 +238,8 @@ export const QuranMemorizationModule: React.FC = () => {
 
         {isHifzTeacherOrAdmin && (
           <button
-            onClick={() => setActiveTabSub('quick_logger')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            onClick={() => handleSubTabChange('quick_logger')}
+            className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               activeTabSub === 'quick_logger'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -233,8 +251,8 @@ export const QuranMemorizationModule: React.FC = () => {
         )}
 
         <button
-          onClick={() => setActiveTabSub('history')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('history')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'history'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -245,8 +263,8 @@ export const QuranMemorizationModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTabSub('surahs')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          onClick={() => handleSubTabChange('surahs')}
+          className={`shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTabSub === 'surahs'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -273,8 +291,8 @@ export const QuranMemorizationModule: React.FC = () => {
       {activeTabSub === 'quick_logger' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recorder Form */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white">Record Memorization &amp; Tajweed Evaluation</h2>
                 <p className="text-xs text-slate-500 font-arabic">تسجيل التسميع اليومي ومستوى التجويد والطلاقة</p>

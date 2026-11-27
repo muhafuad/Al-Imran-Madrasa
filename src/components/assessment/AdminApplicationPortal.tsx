@@ -124,7 +124,7 @@ const ustazList: Teacher[] =
           joinDate: "",
           photoUrl: "",
           status: "active",
-          salaryStatus: "pending",
+    
         },
         {
           id: "tch-2",
@@ -144,7 +144,7 @@ const ustazList: Teacher[] =
           joinDate: "",
           photoUrl: "",
           status: "active",
-          salaryStatus: "pending",
+         
         },
         {
           id: "tch-3",
@@ -164,7 +164,7 @@ const ustazList: Teacher[] =
           joinDate: "",
           photoUrl: "",
           status: "active",
-          salaryStatus: "pending",
+          
         },
       ];
 

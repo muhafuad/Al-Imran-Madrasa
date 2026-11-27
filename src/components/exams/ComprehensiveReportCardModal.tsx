@@ -28,7 +28,7 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
   student,
   onClose,
 }) => {
- 
+  
 
   const [term, setTerm] = useState<string>('Term 1 Final Examination (1447 AH / 2026)');
   const [reportLanguage, setReportLanguage] = useState<'en' | 'ar' | 'am'>('en');
@@ -117,20 +117,20 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 my-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full max-h-[94dvh] overflow-y-auto p-4 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 sm:space-y-6 my-auto">
         
         {/* Modal Toolbar (Hidden on Print) */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
           <div>
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
               Official Academic Credential
             </span>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-1">
               Automated Term Report Card
             </h2>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Language Switcher */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 text-xs">
               <button
@@ -187,19 +187,19 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
         {/* Printable Official Report Card Document */}
         <div
           id="official-term-report-card"
-          className="bg-white text-slate-900 p-6 sm:p-8 rounded-2xl border-2 border-slate-300 shadow-sm space-y-6 print:border-none print:p-0 print:shadow-none"
+          className="bg-white text-slate-900 p-4 sm:p-8 rounded-2xl border-2 border-slate-300 shadow-sm space-y-5 sm:space-y-6 print:border-none print:p-0 print:shadow-none"
         >
           {/* Official Letterhead */}
-          <div className="border-b-2 border-emerald-800 pb-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-900 text-amber-400 border-2 border-amber-300 flex items-center justify-center font-serif text-2xl font-black shadow-sm">
+          <div className="border-b-2 border-emerald-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-emerald-900 text-amber-400 border-2 border-amber-300 flex items-center justify-center font-serif text-xl sm:text-2xl font-black shadow-sm shrink-0">
                 ع
               </div>
-              <div>
-                <h1 className="text-xl font-black font-serif text-emerald-950 uppercase tracking-tight">
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-black font-serif text-emerald-950 uppercase tracking-tight">
                   Al-Imran Madrasa &amp; Qur'anic Academy
                 </h1>
-                <p className="text-sm font-bold text-emerald-800 font-arabic">
+                <p className="text-xs sm:text-sm font-bold text-emerald-800 font-arabic">
                   مدرسة آل عمران النموذجية لتحفيظ القرآن الكريم والعلوم الشرعية
                 </p>
                 <p className="text-[11px] text-slate-500 font-medium">
@@ -208,7 +208,7 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
               </div>
             </div>
 
-            <div className="text-right border-l-2 border-slate-200 pl-4">
+            <div className="sm:text-right sm:border-l-2 sm:border-slate-200 sm:pl-4">
               <span className="px-2.5 py-1 bg-emerald-800 text-amber-300 rounded-md text-[10px] font-black uppercase tracking-wider font-mono">
                 Official Report Card
               </span>
@@ -282,7 +282,7 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs">
               <div className="text-center bg-emerald-900/60 px-3 py-1.5 rounded-lg border border-emerald-800">
                 <span className="text-[10px] text-emerald-300 block">Sabaq (New Lesson)</span>
                 <span className="font-bold text-white">98% Fluent</span>
@@ -391,7 +391,7 @@ export const ComprehensiveReportCardModal: React.FC<ComprehensiveReportCardModal
           </div>
 
           {/* Footer with Verification Note */}
-          <div className="text-center pt-2 text-[9px] text-slate-400 font-mono flex items-center justify-between border-t border-slate-100">
+          <div className="text-center pt-2 text-[9px] text-slate-400 font-mono flex flex-col sm:flex-row items-center justify-between gap-1 border-t border-slate-100">
             <span>Generated securely by Al-Imran Madrasa Management System</span>
             <span>Verify online at alimran.edu.et/verify/rep-{student.admissionNumber}</span>
           </div>

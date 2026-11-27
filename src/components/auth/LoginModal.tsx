@@ -75,14 +75,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 space-y-5 relative overflow-hidden my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-3xl max-w-lg w-full max-h-[94dvh] overflow-y-auto p-4 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 space-y-5 relative my-auto">
         
         {/* Top Header Row with Logo, Language/Theme Controls & Close */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
           <MadrasaLogo size="sm" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Language Switcher */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 text-xs font-semibold border border-slate-200 dark:border-slate-700">
               {(['en', 'am', 'ar'] as Language[]).map((lang) => (

@@ -45,7 +45,7 @@ const MadrasaAppContent: React.FC = () => {
     return (
       <div
         dir={dir}
-        className={`min-h-screen bg-slate-950 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-white ${
+        className={`min-h-dvh bg-slate-950 flex flex-col font-sans text-slate-100 antialiased selection:bg-emerald-500 selection:text-white ${
           theme === 'dark' ? 'dark' : ''
         }`}
       >
@@ -72,7 +72,7 @@ const MadrasaAppContent: React.FC = () => {
   return (
     <div
       dir={dir}
-      className={`min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100 antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
+      className={`min-h-dvh bg-slate-100 dark:bg-slate-950 flex flex-col font-sans text-slate-900 dark:text-slate-100 antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
         theme === 'dark' ? 'dark' : ''
       }`}
     >
@@ -80,13 +80,13 @@ const MadrasaAppContent: React.FC = () => {
       <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
       {/* Main Layout Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-w-0 overflow-x-clip">
         {/* Sidebar Navigation */}
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Content View Container */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-100/90 dark:bg-slate-950/90 transition-all">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 bg-slate-100/90 dark:bg-slate-950/90 transition-all">
+          <div className="max-w-7xl mx-auto min-w-0 space-y-5 sm:space-y-6">
             {activeTab === 'dashboard' && <DashboardOverview />}
 
             {activeTab === 'students' && (

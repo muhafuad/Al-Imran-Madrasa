@@ -125,27 +125,27 @@ export const IDCardStudio: React.FC = () => {
       />
 
       {/* Top Header */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
               Identity Management &amp; Security
             </span>
-            <span className="text-xs text-slate-400">•</span>
+            <span className="text-xs text-slate-400 hidden sm:inline">•</span>
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
               High-Resolution PVC &amp; Paper Print Format
             </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            <ShieldCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
-            Official ID Card &amp; Badge Studio
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Official ID Card &amp; Badge Studio</span>
           </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
             Generate verifiable photographic identity badges with cryptographic QR verification for students, teachers, and administrative personnel.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           {!isPrintAuthorized && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 rounded-xl text-amber-800 dark:text-amber-300 text-[11px] font-bold">
               <Lock className="w-3.5 h-3.5 shrink-0" />
@@ -389,15 +389,15 @@ export const IDCardStudio: React.FC = () => {
 
         {/* Right Side: Live Card Preview & Print Canvas */}
         <div className="lg:col-span-7 flex flex-col items-center justify-start space-y-6">
-          <div className="w-full bg-slate-950/5 dark:bg-slate-900/40 rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center gap-8 min-h-[560px]">
+          <div className="w-full bg-slate-950/5 dark:bg-slate-900/40 rounded-3xl p-3 sm:p-8 border border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center gap-6 sm:gap-8 min-h-0 sm:min-h-[560px]">
             
             {/* Student ID Card Layout */}
             {cardType === 'student' && selectedStudent && (
-              <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-2xl">
+              <div className="flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-8 w-full max-w-2xl">
                 
                 {/* Front Side */}
                 {(cardSideView === 'both' || cardSideView === 'front') && (
-                  <div className="w-72 h-[430px] bg-white rounded-2xl shadow-2xl border-2 border-emerald-700/80 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
+                  <div className="w-full max-w-[288px] h-[430px] bg-white rounded-2xl shadow-2xl border-2 border-emerald-700/80 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
                     {/* Top Header Banner */}
                     <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white p-3.5 text-center relative">
                       <div className="absolute top-1.5 left-2.5">
@@ -469,7 +469,7 @@ export const IDCardStudio: React.FC = () => {
 
                 {/* Back Side */}
                 {(cardSideView === 'both' || cardSideView === 'back') && (
-                  <div className="w-72 h-[430px] bg-slate-50 rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
+                  <div className="w-full max-w-[288px] h-[430px] bg-slate-50 rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
                     {/* Top Back Header */}
                     <div className="p-3 bg-slate-900 text-white text-center">
                       <p className="text-[10px] font-bold tracking-wider uppercase text-amber-400">
@@ -528,7 +528,7 @@ export const IDCardStudio: React.FC = () => {
                 
                 {/* Staff Front Side */}
                 {(cardSideView === 'both' || cardSideView === 'front') && (
-                  <div className="w-72 h-[430px] bg-white rounded-2xl shadow-2xl border-2 border-indigo-800 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
+                  <div className="w-full max-w-[288px] h-[430px] bg-white rounded-2xl shadow-2xl border-2 border-indigo-800 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
                     {/* Header */}
                     <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-3.5 text-center relative">
                       <div className="flex flex-col items-center">
@@ -595,7 +595,7 @@ export const IDCardStudio: React.FC = () => {
 
                 {/* Staff Back Side */}
                 {(cardSideView === 'both' || cardSideView === 'back') && (
-                  <div className="w-72 h-[430px] bg-slate-50 rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
+                  <div className="w-full max-w-[288px] h-[430px] bg-slate-50 rounded-2xl shadow-2xl border-2 border-slate-300 overflow-hidden flex flex-col justify-between relative print:shadow-none print:border-slate-900">
                     <div className="p-3 bg-indigo-950 text-white text-center">
                       <p className="text-[10px] font-bold tracking-wider uppercase text-amber-400">
                         Staff Verification &amp; Access Rights
@@ -702,19 +702,19 @@ export const IDCardStudio: React.FC = () => {
 
       {/* Batch Print A4 Sheet Modal */}
       {isBatchPrintModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
-              <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-emerald-600" />
-                  Batch ID Card Sheet Printing (A4 Multi-Grid)
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 sm:space-y-6 animate-in fade-in duration-200 my-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>Batch ID Card Sheet Printing (A4 Multi-Grid)</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Formatted for printing multiple PVC identity badges on high-yield A4 sheets with alignment guides.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   onClick={handlePrint}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
@@ -775,8 +775,8 @@ export const IDCardStudio: React.FC = () => {
 
       {/* Printing Permission Denied Modal */}
       {showPermissionWarning && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-amber-200 dark:border-amber-900/60 shadow-2xl max-w-md w-full space-y-4 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 my-auto max-h-[92dvh] overflow-y-auto border border-amber-200 dark:border-amber-900/60 shadow-2xl max-w-md w-full space-y-4 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 rounded-2xl">
                 <Lock className="w-6 h-6" />

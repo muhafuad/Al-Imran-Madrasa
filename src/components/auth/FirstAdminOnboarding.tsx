@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useMadrasa } from '../../context/MadrasaContext';
 import { MadrasaLogo } from '../common/MadrasaLogo';
 import { ShieldCheck, User, Mail, Lock, Phone, Building, ArrowRight, CheckCircle2, Sparkles, Globe, Sun, Moon, ArrowLeft } from 'lucide-react';
-import type { Language } from '../../i18n/translations';
+import { type Language } from '../../i18n/translations';
 
 interface FirstAdminOnboardingProps {
   onBack?: () => void;
@@ -58,37 +58,38 @@ export const FirstAdminOnboarding: React.FC<FirstAdminOnboardingProps> = ({ onBa
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white p-4 sm:p-6 lg:p-10 relative overflow-hidden transition-colors duration-200">
+    <div className="min-h-dvh bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col justify-between selection:bg-emerald-500 selection:text-white p-3 sm:p-6 lg:p-10 relative overflow-x-hidden transition-colors duration-200">
       {/* Background Islamic Geometric Grid */}
       <div className="absolute inset-0 bg-[radial-gradient(#059669_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none" />
 
       {/* Top Header Controls: Language, Theme & Back */}
-      <div className="relative z-10 max-w-5xl mx-auto w-full flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="relative z-10 max-w-5xl mx-auto w-full flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onBack || (() => setActiveTab('landing'))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-emerald-600 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 min-h-[40px] rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-emerald-600 text-xs font-semibold shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-            <span>{t.home || 'Public Site'}</span>
+            <span className="hidden sm:inline">{t.home || 'Public Site'}</span>
           </button>
           <MadrasaLogo size="md" />
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ms-auto">
           {/* Language Switcher */}
           <div className="flex items-center bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-1 text-xs font-semibold shadow-xs">
             {(['en', 'am', 'ar'] as Language[]).map((lang) => (
               <button
                 key={lang}
                 onClick={() => setLanguage(lang)}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2 sm:px-2.5 py-1 rounded-lg transition-all ${
                   language === lang
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                {lang === 'en' ? 'EN' : lang === 'am' ? 'አማርኛ' : 'العربية'}
+                <span className="sm:hidden">{lang === 'en' ? 'EN' : lang === 'am' ? 'አማ' : 'عر'}</span>
+                <span className="hidden sm:inline">{lang === 'en' ? 'EN' : lang === 'am' ? 'አማርኛ' : 'العربية'}</span>
               </button>
             ))}
           </div>
@@ -96,7 +97,7 @@ export const FirstAdminOnboarding: React.FC<FirstAdminOnboardingProps> = ({ onBa
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-colors shadow-xs cursor-pointer"
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-colors shadow-xs cursor-pointer"
             title={theme === 'dark' ? t.dayMode : t.nightMode}
           >
             {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
@@ -105,8 +106,8 @@ export const FirstAdminOnboarding: React.FC<FirstAdminOnboardingProps> = ({ onBa
       </div>
 
       {/* Main Setup Container */}
-      <div className="relative z-10 max-w-2xl mx-auto w-full my-8">
-        <div className="bg-white dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-3xl p-6 sm:p-10 shadow-2xl shadow-emerald-950/10 dark:shadow-emerald-950/50 space-y-6">
+      <div className="relative z-10 max-w-2xl mx-auto w-full my-6 sm:my-8">
+        <div className="bg-white dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-3xl p-4 sm:p-10 shadow-2xl shadow-emerald-950/10 dark:shadow-emerald-950/50 space-y-6">
           {/* Title Badge */}
           <div className="space-y-2 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-400 text-xs font-bold">

@@ -120,17 +120,17 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClos
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 space-y-6 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-3xl w-full p-4 sm:p-8 shadow-2xl text-slate-900 dark:text-slate-100 space-y-5 sm:space-y-6 max-h-[92dvh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+        <div className="flex items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 sm:p-2.5 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 shrink-0">
               <Shield className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 Admin Staff & Role Registration (RBAC)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -141,14 +141,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClos
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveTab('list')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
@@ -221,14 +221,14 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({ onClos
                       <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold flex items-center justify-center text-sm flex-shrink-0">
                         {usr.name.charAt(0)}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold text-sm text-slate-900 dark:text-white">{usr.name}</span>
                           {usr.arabicName && (
                             <span className="text-xs font-arabic text-emerald-600 dark:text-emerald-400">({usr.arabicName})</span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 break-all">
                           <span>{usr.email}</span>
                           <span>•</span>
                           <span>{usr.phone}</span>

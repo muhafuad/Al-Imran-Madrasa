@@ -297,8 +297,8 @@ export const ImageUploadField: React.FC<ImageUploadFieldProps> = ({
 
       {/* Live Camera Snapshot Modal */}
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full space-y-4 animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 my-auto max-h-[92dvh] overflow-y-auto border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full space-y-4 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-xl">

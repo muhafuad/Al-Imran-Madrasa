@@ -19,15 +19,15 @@ export const MadrasaLogo: React.FC<MadrasaLogoProps> = ({
 
   const sizeMap = {
     sm: { icon: 'w-8 h-8', title: 'text-sm font-bold', sub: 'text-[10px]', arabic: 'text-xs' },
-    md: { icon: 'w-11 h-11', title: 'text-base font-bold', sub: 'text-xs', arabic: 'text-sm' },
-    lg: { icon: 'w-16 h-16', title: 'text-xl font-extrabold', sub: 'text-sm', arabic: 'text-base' },
-    xl: { icon: 'w-24 h-24', title: 'text-2xl font-black', sub: 'text-base', arabic: 'text-xl' },
+    md: { icon: 'w-9 h-9 sm:w-11 sm:h-11', title: 'text-sm sm:text-base font-bold', sub: 'text-[11px] sm:text-xs', arabic: 'text-xs sm:text-sm' },
+    lg: { icon: 'w-14 h-14 sm:w-16 sm:h-16', title: 'text-lg sm:text-xl font-extrabold', sub: 'text-xs sm:text-sm', arabic: 'text-sm sm:text-base' },
+    xl: { icon: 'w-20 h-20 sm:w-24 sm:h-24', title: 'text-xl sm:text-2xl font-black', sub: 'text-sm sm:text-base', arabic: 'text-lg sm:text-xl' },
   };
 
   const currentSize = sizeMap[size];
 
   return (
-    <div className={`flex items-center gap-3 select-none ${className}`}>
+    <div className={`flex items-center gap-2 sm:gap-3 min-w-0 select-none ${className}`}>
       {/* Brand Icon or Custom Uploaded Logo */}
       <div className={`relative flex-shrink-0 flex items-center justify-center ${currentSize.icon} transition-transform hover:scale-105 duration-200 overflow-hidden rounded-xl`}>
         {customLogoUrl ? (
@@ -119,21 +119,21 @@ export const MadrasaLogo: React.FC<MadrasaLogoProps> = ({
 
       {/* Title & Subtitle */}
       {showText && (
-        <div className="flex flex-col leading-tight">
-          <div className="flex items-center gap-2">
-            <span className={`${currentSize.title} tracking-tight text-slate-900 dark:text-slate-100 font-extrabold`}>
+        <div className="flex flex-col leading-tight min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`${currentSize.title} tracking-tight text-slate-900 dark:text-slate-100 font-extrabold truncate`}>
               Al-Imran CMC
             </span>
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <span className="hidden sm:inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
               CMC • Addis
             </span>
           </div>
-          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-            <span className={`${currentSize.sub} font-medium`}>
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 min-w-0">
+            <span className={`${currentSize.sub} font-medium truncate`}>
               Madrasa System
             </span>
             {showAmharic && (
-              <span className="text-[11px] font-amharic text-emerald-700 dark:text-emerald-400 font-semibold hidden sm:inline">
+              <span className="text-[11px] font-amharic text-emerald-700 dark:text-emerald-400 font-semibold hidden sm:inline shrink-0">
                 • አል ዒምራን
               </span>
             )}

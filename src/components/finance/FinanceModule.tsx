@@ -330,16 +330,16 @@ export const FinanceModule: React.FC = () => {
 
       {/* Record Payment Modal */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <div>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-6 my-auto shadow-2xl border border-slate-200 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 mb-4">
+              <div className="min-w-0">
                 <h2 className="text-base font-bold text-slate-900">Record Fee Collection</h2>
                 <p className="text-xs text-slate-500 font-arabic">سند قبض رسوم دراسية - مدرسة آل عمران</p>
               </div>
               <button
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -361,7 +361,7 @@ export const FinanceModule: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1">Fee Type</label>
                   <select
@@ -392,7 +392,7 @@ export const FinanceModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 font-semibold mb-1">Payment Method</label>
                   <select
@@ -428,17 +428,17 @@ export const FinanceModule: React.FC = () => {
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2">
+              <div className="pt-3 flex flex-wrap-reverse sm:flex-nowrap justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                  className="w-full sm:w-auto px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md"
+                  className="w-full sm:w-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md"
                 >
                   Confirm & Issue Official Receipt
                 </button>
@@ -450,14 +450,14 @@ export const FinanceModule: React.FC = () => {
 
       {/* Official Printable Receipt Modal */}
       {isReceiptModalOpen && selectedReceipt && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4 no-print">
-              <div>
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-6 my-auto shadow-2xl border border-slate-200 animate-in fade-in duration-150">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 mb-4 no-print">
+              <div className="min-w-0">
                 <h3 className="font-black text-slate-900 text-base">Al-Imran Official Receipt</h3>
                 <p className="text-xs text-slate-500">Official proof of payment and tax voucher</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handlePrint}
                   className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-sm"
@@ -475,10 +475,10 @@ export const FinanceModule: React.FC = () => {
             </div>
 
             {/* Printable Receipt Paper */}
-            <div className="border-2 border-dashed border-slate-300 p-5 rounded-xl bg-slate-50/50 space-y-4 select-none">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="border-2 border-dashed border-slate-300 p-4 sm:p-5 rounded-xl bg-slate-50/50 space-y-4 select-none">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
                 <MadrasaLogo size="sm" showAmharic={false} />
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block">OFFICIAL RECEIPT</span>
                   <span className="font-mono font-bold text-slate-900 text-xs block">{selectedReceipt.receiptNumber}</span>
                   <span className="text-[10px] text-slate-400">{selectedReceipt.date}</span>

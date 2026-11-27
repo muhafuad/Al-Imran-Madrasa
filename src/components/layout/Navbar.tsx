@@ -24,8 +24,8 @@ import {
   Heart,
   ExternalLink,
 } from 'lucide-react';
-import type { UserRole } from '../../types';
-import type { Language } from '../../i18n/translations';
+import { type UserRole } from '../../types';
+import { type Language } from '../../i18n/translations';
 import { UserManagementModal } from '../auth/UserManagementModal';
 import { LoginModal } from '../auth/LoginModal';
 import { SupabaseConnectModal } from '../common/SupabaseConnectModal';
@@ -62,6 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -82,16 +83,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 lg:px-8 py-2.5 transition-colors duration-200 no-print text-slate-900 dark:text-slate-100">
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-2.5 sm:px-6 lg:px-8 py-2 sm:py-2.5 transition-colors duration-200 no-print text-slate-900 dark:text-slate-100">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-4 min-w-0">
           
           {/* Left: Mobile Sidebar Toggle + Brand Logo */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 lg:flex-initial">
             {onToggleSidebar && (
               <button
                 onClick={onToggleSidebar}
-                className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="lg:hidden min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
                 title="Toggle Sidebar Menu"
+                aria-label="Toggle Sidebar Menu"
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -145,7 +147,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           </div>
 
           {/* Right Controls: Actions, Theme, Language, Notifications, User Menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Mobile Search Toggle */}
+            <button
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              className={`md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl border transition-colors ${
+                showMobileSearch || searchQuery
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              }`}
+              title="Search"
+              aria-label="Toggle search"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             {/* Quick Action Button */}
             <div className="hidden lg:flex items-center gap-2">
               <button
@@ -179,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             {currentUser?.role === 'super_admin' && (
               <button
                 onClick={() => setShowSupabaseModal(true)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                   isSupabaseActive
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
                     : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50'
@@ -202,16 +217,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   setShowUserMenu(false);
                   setShowNotifications(false);
                 }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 min-h-[40px] rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors"
                 title={t.language}
               >
                 <Globe className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span className="uppercase">{language}</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:inline" />
               </button>
 
               {showLangMenu && (
-                <div className="absolute right-0 mt-2 w-36 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute end-0 mt-2 w-36 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                   {[
                     { code: 'en', label: 'English', flag: '🇬🇧' },
                     { code: 'am', label: 'አማርኛ', flag: '🇪🇹' },
@@ -242,7 +257,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             {/* Day / Night Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+              className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
               title={theme === 'dark' ? t.dayMode : t.nightMode}
             >
               {theme === 'dark' ? (
@@ -260,12 +275,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   setShowUserMenu(false);
                   setShowLangMenu(false);
                 }}
-                className="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors border border-slate-200 dark:border-slate-700"
+                className="relative min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors border border-slate-200 dark:border-slate-700"
                 title="Notifications"
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center px-1 rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                  <span className="absolute -top-1 -end-1 flex h-4 min-w-[16px] items-center justify-center px-1 rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-slate-900 animate-pulse">
                     {unreadCount}
                   </span>
                 )}
@@ -273,7 +288,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
               {/* Notification Drawer */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in duration-100">
+                <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:end-0 top-16 sm:top-auto sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-4 z-50 animate-in fade-in duration-100">
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-900 dark:text-white text-xs">Notifications</span>
@@ -327,9 +342,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     setShowNotifications(false);
                     setShowLangMenu(false);
                   }}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-left"
+                  className="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:pl-2 sm:pr-3 min-h-[40px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-all text-start"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shadow-xs shrink-0">
                     {currentUser.name.charAt(0)}
                   </div>
                   <div className="hidden sm:block leading-tight">
@@ -340,12 +355,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                       {roleConfig.label}
                     </div>
                   </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:inline" />
                 </button>
               ) : (
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                  className="inline-flex items-center gap-1.5 px-3 min-h-[40px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   <span>{t.login}</span>
@@ -354,15 +369,49 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
               {/* User Dropdown Menu */}
               {showUserMenu && currentUser && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50 animate-in fade-in duration-100">
+                <div className="absolute end-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-2 z-50 animate-in fade-in duration-100">
                   <div className="p-3 border-b border-slate-100 dark:border-slate-800 space-y-1">
-                    <div className="font-bold text-xs text-slate-900 dark:text-white">{currentUser.name}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{currentUser.email}</div>
+                    <div className="font-bold text-xs text-slate-900 dark:text-white truncate">{currentUser.name}</div>
+                    <div className="text-[11px] text-slate-400 font-mono break-all">{currentUser.email}</div>
                     <div className="pt-1 flex items-center gap-1.5">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${roleConfig.bg} ${roleConfig.text}`}>
                         {roleConfig.label}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Mobile Quick Shortcuts (visible below lg) */}
+                  <div className="lg:hidden py-1.5 border-b border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-1 text-[10px] font-bold">
+                    <button
+                      onClick={() => {
+                        setActiveTab('landing');
+                        setShowUserMenu(false);
+                      }}
+                      className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="truncate max-w-full">Public</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('donate');
+                        setShowUserMenu(false);
+                      }}
+                      className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+                    >
+                      <Heart className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-full">Waqf</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTab('quran');
+                        setShowUserMenu(false);
+                      }}
+                      className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-full">Sabaq</span>
+                    </button>
                   </div>
 
                   <div className="py-1 space-y-0.5 text-xs">
@@ -489,6 +538,31 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             </div>
           </div>
         </div>
+
+        {/* Collapsible Mobile Search Bar */}
+        {showMobileSearch && (
+          <div className="md:hidden pt-2 mt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="relative w-full">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder={t.searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+                className="w-full ps-9 pe-14 py-2 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-900 dark:text-slate-100"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* User Management Modal */}

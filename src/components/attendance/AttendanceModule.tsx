@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMadrasa } from '../../context/MadrasaContext';
-import type { AttendanceStatus } from '../../types';
+import {type AttendanceStatus } from '../../types';
 import { DatabaseStatusBanner } from '../common/DatabaseStatusBanner';
 import { canTakeAttendance } from '../../utils/permissions';
 import {
@@ -173,17 +173,17 @@ export const AttendanceModule: React.FC = () => {
         </div>
 
         {canTake && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={handleMarkAllPresent}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="flex-1 sm:flex-initial justify-center px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Mark All Present</span>
             </button>
             <button
               onClick={handleSaveAttendance}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="flex-1 sm:flex-initial justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <CalendarCheck className="w-4 h-4" />
               <span>Save Attendance Sheet</span>

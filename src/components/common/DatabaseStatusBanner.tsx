@@ -112,7 +112,7 @@ export const DatabaseStatusBanner: React.FC<DatabaseStatusBannerProps> = ({
     <>
       <div className="w-full bg-slate-900 text-white rounded-2xl p-3 sm:px-4 sm:py-3 border border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs mb-4 no-print">
         {/* Left: DB Health Status */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
           <div
             className={`p-1.5 rounded-xl flex items-center justify-center shrink-0 ${
               isSupabaseActive
@@ -179,7 +179,7 @@ export const DatabaseStatusBanner: React.FC<DatabaseStatusBannerProps> = ({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 flex-wrap w-full sm:w-auto">
           {syncFeedback && (
             <span className="text-[11px] font-medium text-emerald-400 animate-in fade-in">
               {syncFeedback}
@@ -210,19 +210,19 @@ export const DatabaseStatusBanner: React.FC<DatabaseStatusBannerProps> = ({
       </div>
 
       {isAdmin && dbWarning && (
-        <div className="w-full mb-4 p-3 bg-amber-50 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/80 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200 animate-in fade-in">
-          <div className="flex items-center gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <div>
+        <div className="w-full mb-4 p-3 bg-amber-50 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200 animate-in fade-in">
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div className="min-w-0">
               <p className="font-bold">
                 {dbWarning.is401 ? 'Supabase Authentication Required (401)' : 'Database Notice'}
               </p>
-              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-snug break-words">
                 {dbWarning.message}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center justify-end gap-2 shrink-0">
             <button
               onClick={() => setIsModalOpen(true)}
               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors shadow-xs"

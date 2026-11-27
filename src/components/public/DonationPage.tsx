@@ -27,7 +27,7 @@ import {
   Check,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import type { DonationCause, DonationRecord } from '../../types';
+import { type DonationCause } from '../../types';
 
 export const DonationPage: React.FC = () => {
   const {
@@ -160,37 +160,38 @@ export const DonationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors duration-200">
+    <div className="min-h-dvh overflow-x-hidden bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors duration-200">
       {/* Navigation Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur border-b border-stone-200 dark:border-stone-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 h-16 sm:h-20 min-w-0">
             {/* Back to Home & Logo */}
-            <div className="flex items-center space-x-3 rtl:space-x-reverse">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <button
                 onClick={() => setActiveTab('landing')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 min-h-[40px] rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-colors shrink-0"
+                title={t.home}
               >
                 <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
-                <span>{t.home}</span>
+                <span className="hidden sm:inline">{t.home}</span>
               </button>
 
               <div
-                className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer"
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0"
                 onClick={() => setActiveTab('landing')}
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-white shadow-md shadow-amber-700/20">
-                  <Heart className="w-5 h-5 fill-white" />
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-white shadow-md shadow-amber-700/20 shrink-0">
+                  <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
                 </div>
-                <div>
-                  <h1 className="text-base sm:text-lg font-bold tracking-tight text-stone-900 dark:text-white font-serif">
+                <div className="min-w-0">
+                  <h1 className="text-sm sm:text-lg font-bold tracking-tight text-stone-900 dark:text-white font-serif truncate">
                     {language === 'ar'
                       ? 'صندوق الوقف والصدقة الجارية'
                       : language === 'am'
                       ? 'የአል ዒምራን የዋቅፍና የሶደቃ ጃሪያ ፈንድ'
                       : 'Al-Imran Waqf & Sadaqah Fund'}
                   </h1>
-                  <p className="text-xs text-stone-500 dark:text-stone-400 font-arabic">
+                  <p className="hidden sm:block text-xs text-stone-500 dark:text-stone-400 font-arabic truncate">
                     {language === 'ar'
                       ? 'مجمع آل عمران القرآني الوقفي • أديس أبابا'
                       : language === 'am'
@@ -202,9 +203,20 @@ export const DonationPage: React.FC = () => {
             </div>
 
             {/* Top Right Controls */}
-            <div className="flex items-center space-x-2 sm:space-x-3 rtl:space-x-reverse">
-              {/* Language Switcher */}
-              <div className="relative flex items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-1 text-xs">
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Compact Language Cycle Button (Mobile) */}
+              <button
+                type="button"
+                onClick={() => setLanguage(language === 'en' ? 'am' : language === 'am' ? 'ar' : 'en')}
+                className="sm:hidden flex items-center gap-1 px-2.5 min-h-[40px] rounded-lg bg-stone-100 dark:bg-stone-800 text-xs font-bold text-stone-700 dark:text-stone-200"
+                title={t.language}
+              >
+                <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="uppercase">{language}</span>
+              </button>
+
+              {/* Language Switcher (Tablet/Desktop) */}
+              <div className="hidden sm:flex relative items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-1 text-xs">
                 <Globe className="w-3.5 h-3.5 text-stone-500 mx-1" />
                 {(['en', 'am', 'ar'] as const).map(lang => (
                   <button
@@ -224,7 +236,7 @@ export const DonationPage: React.FC = () => {
               {/* Day / Night Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                 title={theme === 'dark' ? t.dayMode : t.nightMode}
                 aria-label="Toggle Theme"
               >
@@ -234,10 +246,11 @@ export const DonationPage: React.FC = () => {
               {/* Portal Login */}
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 min-h-[40px] rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
               >
-                <LogIn className="w-4 h-4" />
-                <span>{currentUser ? t.dashboard : t.madrasaPortal}</span>
+                <LogIn className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">{currentUser ? t.dashboard : t.madrasaPortal}</span>
+                <span className="sm:hidden">{currentUser ? t.dashboard : (t.login || 'Portal')}</span>
               </button>
             </div>
           </div>
@@ -343,10 +356,10 @@ export const DonationPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs">
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 sm:gap-3 text-xs w-full md:w-auto">
+              <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs max-w-full">
                 <span className="font-semibold text-emerald-700 dark:text-emerald-400">Telebirr:</span>
-                <span className="font-mono font-bold">+251 911 234 567</span>
+                <span className="font-mono font-bold break-all">+251 911 234 567</span>
                 <button
                   onClick={() => handleCopy('+251911234567', 'telebirr')}
                   className="text-stone-400 hover:text-stone-600 ml-1"
@@ -356,9 +369,9 @@ export const DonationPage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs">
+              <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs max-w-full">
                 <span className="font-semibold text-purple-700 dark:text-purple-400">CBE:</span>
-                <span className="font-mono font-bold">1000 4567 8901 2</span>
+                <span className="font-mono font-bold break-all">1000 4567 8901 2</span>
                 <button
                   onClick={() => handleCopy('1000456789012', 'cbe')}
                   className="text-stone-400 hover:text-stone-600 ml-1"
@@ -368,9 +381,9 @@ export const DonationPage: React.FC = () => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs">
+              <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 shadow-xs max-w-full">
                 <span className="font-semibold text-amber-700 dark:text-amber-400">Awash Bank:</span>
-                <span className="font-mono font-bold">0132 0892 1100 00</span>
+                <span className="font-mono font-bold break-all">0132 0892 1100 00</span>
                 <button
                   onClick={() => handleCopy('01320892110000', 'awash')}
                   className="text-stone-400 hover:text-stone-600 ml-1"
@@ -405,7 +418,7 @@ export const DonationPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl text-xs font-semibold">
+          <div className="w-full lg:w-auto flex items-center gap-1.5 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
             {[
               {
                 id: 'all',
@@ -692,16 +705,16 @@ export const DonationPage: React.FC = () => {
 
       {/* Interactive Donation Checkout Modal */}
       {activeModalCause && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-          <div className="relative w-full max-w-xl bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="relative w-full max-w-xl max-h-[92dvh] overflow-y-auto bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 my-auto">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-amber-700 to-amber-800 text-white p-6 flex items-start justify-between">
-              <div>
+            <div className="bg-gradient-to-r from-amber-700 to-amber-800 text-white p-4 sm:p-6 flex items-start justify-between gap-3 sticky top-0 z-10">
+              <div className="min-w-0">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-600/60 text-amber-200 text-xs font-semibold mb-1">
                   <Heart className="w-3.5 h-3.5 fill-amber-200" />
                   <span>{activeModalCause.badge}</span>
                 </div>
-                <h3 className="text-lg font-bold font-serif">{activeModalCause.title}</h3>
+                <h3 className="text-base sm:text-lg font-bold font-serif">{activeModalCause.title}</h3>
                 <p className="text-xs text-amber-200 font-arabic">{activeModalCause.arabicTitle}</p>
               </div>
 
@@ -710,14 +723,14 @@ export const DonationPage: React.FC = () => {
                   setActiveModalCause(null);
                   setCompletedReceipt(null);
                 }}
-                className="p-1 rounded-lg text-amber-200 hover:text-white hover:bg-amber-600/50"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-amber-200 hover:text-white hover:bg-amber-600/50 shrink-0"
               >
                 ✕
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {completedReceipt ? (
                 /* Completed Receipt View with Printable Certificate */
                 <div className="space-y-6 text-center">
@@ -743,13 +756,13 @@ export const DonationPage: React.FC = () => {
                   </div>
 
                   {/* Printable Receipt Card */}
-                  <div className="p-6 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-left rtl:text-right space-y-3 font-sans text-xs">
-                    <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-700 pb-3">
+                  <div className="p-4 sm:p-6 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-left rtl:text-right space-y-3 font-sans text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 dark:border-stone-700 pb-3">
                       <div>
                         <div className="font-bold text-sm text-stone-900 dark:text-white">Al-Imran CMC Madrasa</div>
                         <div className="text-2xs text-stone-500 font-arabic">مجمع آل عمران القرآني الوقفي</div>
                       </div>
-                      <div className="text-right rtl:text-left">
+                      <div className="sm:text-right rtl:sm:text-left">
                         <div className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
                           {completedReceipt.receiptNumber}
                         </div>
@@ -757,7 +770,7 @@ export const DonationPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                       <div>
                         <span className="text-stone-500 block text-2xs">
                           {language === 'ar' ? 'اسم المتبرع:' : language === 'am' ? 'የለጋሽ ስም:' : 'Donor Name:'}
@@ -794,7 +807,7 @@ export const DonationPage: React.FC = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-3">
                     <button
                       onClick={handlePrintReceipt}
                       className="px-4 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 font-semibold text-xs flex items-center gap-1.5"
@@ -899,7 +912,7 @@ export const DonationPage: React.FC = () => {
                           key={f.id}
                           type="button"
                           onClick={() => setFrequency(f.id as any)}
-                          className={`py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          className={`py-2 px-1.5 rounded-lg text-[11px] sm:text-xs font-medium border transition-colors text-center leading-tight ${
                             frequency === f.id
                               ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-400'
                               : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400'

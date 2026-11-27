@@ -88,6 +88,15 @@ export const TajweedVoiceRecorder: React.FC = () => {
     if (contextRecitations && Array.isArray(contextRecitations) && contextRecitations.length > 0) {
       return contextRecitations;
     }
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_RECITATIONS_KEY) || localStorage.getItem('alimran_quran_recitations_v2');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+      }
+    }
     return INITIAL_RECITATIONS;
   });
 
@@ -98,9 +107,15 @@ export const TajweedVoiceRecorder: React.FC = () => {
         const map = new Map<string, RecitationSubmission>();
         prev.forEach((r) => map.set(r.id, r));
         contextRecitations.forEach((r) => map.set(r.id, r));
-        return Array.from(map.values()).sort(
+        const merged = Array.from(map.values()).sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         );
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(merged));
+          } catch {}
+        }
+        return merged;
       });
     }
   }, [contextRecitations]);
@@ -343,7 +358,24 @@ export const TajweedVoiceRecorder: React.FC = () => {
   const [inspectingSubmission, setInspectingSubmission] = useState<RecitationSubmission | null>(null);
 
   // Sub-tabs for Student & Ustaz
-  const [studentSubTab, setStudentSubTab] = useState<'record_new' | 'my_submissions'>('record_new');
+  const [studentSubTab, setStudentSubTab] = useState<'record_new' | 'my_submissions'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('alimran_tajweed_student_subtab');
+      if (saved === 'record_new' || saved === 'my_submissions') return saved;
+    }
+    return 'record_new';
+  });
+
+  const changeStudentSubTab = (tab: 'record_new' | 'my_submissions') => {
+    setStudentSubTab(tab);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('alimran_tajweed_student_subtab', tab);
+      } catch {}
+    }
+  };
+
+  const [studentViewFilter, setStudentViewFilter] = useState<'selected' | 'all'>('selected');
   const [teacherSubTab, setTeacherSubTab] = useState<'pending_queue' | 'workbench' | 'reviewed_archive'>('pending_queue');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -357,16 +389,50 @@ export const TajweedVoiceRecorder: React.FC = () => {
   // Load persisted submissions and draft audio from IndexedDB and Supabase on component mount
   useEffect(() => {
     const loadPersistedData = async () => {
+      // 1. Immediately hydrate from localStorage if available
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(STORAGE_RECITATIONS_KEY) || localStorage.getItem('alimran_quran_recitations_v2');
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setSubmissions((prev) => {
+                const map = new Map<string, RecitationSubmission>();
+                prev.forEach((r) => map.set(r.id, r));
+                parsed.forEach((r) => map.set(r.id, r));
+                return Array.from(map.values()).sort(
+                  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+              });
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Read from IndexedDB and merge
       try {
-        const saved = await idbGet<RecitationSubmission[]>(STORAGE_RECITATIONS_KEY, INITIAL_RECITATIONS);
+        const saved = await idbGet<RecitationSubmission[]>(STORAGE_RECITATIONS_KEY, []);
         if (saved && Array.isArray(saved) && saved.length > 0) {
-          setSubmissions(saved);
+          setSubmissions((prev) => {
+            const map = new Map<string, RecitationSubmission>();
+            prev.forEach((r) => map.set(r.id, r));
+            saved.forEach((r) => map.set(r.id, r));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            if (typeof window !== 'undefined') {
+              try {
+                localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(merged));
+              } catch {}
+            }
+            return merged;
+          });
         }
       } catch (e) {
         console.warn('[TajweedStudio] Error loading persisted recitations:', e);
       }
 
-      // Check cloud database for submissions if Supabase is connected
+      // 3. Check cloud database for submissions if Supabase is connected
       if (isSupabaseConfigured()) {
         try {
           const cloudRecs = await dbFetchRecitations();
@@ -379,6 +445,11 @@ export const TajweedVoiceRecorder: React.FC = () => {
                 (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
               );
               idbSet(STORAGE_RECITATIONS_KEY, merged).catch(() => {});
+              if (typeof window !== 'undefined') {
+                try {
+                  localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(merged));
+                } catch {}
+              }
               return merged;
             });
           }
@@ -586,6 +657,19 @@ export const TajweedVoiceRecorder: React.FC = () => {
       }
     }
 
+    // Direct base64 fallback so audio persists and plays immediately across refreshes
+    let dataUrlFallback = '';
+    if (finalBlob && finalBlob.size < 600000) {
+      try {
+        dataUrlFallback = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(finalBlob);
+        });
+      } catch {}
+    }
+
     const newSubmission: RecitationSubmission = {
       id: subId,
       studentId: currentStudent.id,
@@ -601,18 +685,32 @@ export const TajweedVoiceRecorder: React.FC = () => {
       juz: selectedSurah.startJuz,
       date: new Date().toISOString().split('T')[0],
       audioDurationSeconds: recordingTime > 0 ? recordingTime : 120,
-      audioBlobUrl: cloudAudioUrl || '',
+      audioBlobUrl: cloudAudioUrl || dataUrlFallback || '',
       audioBlobKey: blobKey,
       studentNote: studentNote.trim() || undefined,
       tajweedErrors: [],
       status: 'pending_review',
     };
 
-    const updatedSubmissions = [newSubmission, ...submissions];
+    const updatedSubmissions = [newSubmission, ...submissions.filter((s) => s.id !== subId)];
     setSubmissions(updatedSubmissions);
+
+    // Synchronously write to localStorage so page refresh immediately has this record
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(updatedSubmissions));
+        localStorage.setItem('alimran_quran_recitations_v2', JSON.stringify(updatedSubmissions));
+      } catch (e) {
+        console.warn('localStorage save warning:', e);
+      }
+    }
+
+    // Persist to IndexedDB
     await idbSet(STORAGE_RECITATIONS_KEY, updatedSubmissions);
+    idbSet('alimran_quran_recitation_submissions', updatedSubmissions).catch(() => {});
+
     if (contextAddRecitation) {
-      contextAddRecitation(newSubmission).catch(() => {});
+      await contextAddRecitation(newSubmission).catch(() => {});
     }
 
     // Also persist to Supabase recitation_submissions table
@@ -624,7 +722,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
 
     resetRecording();
     setStudentNote('');
-    setStudentSubTab('my_submissions');
+    changeStudentSubTab('my_submissions');
 
     alert(`Alhamdulillah! Your voice recitation for Surah ${selectedSurah.nameEnglish} (Ayahs ${ayahStart}-${ayahEnd}) has been sent to ${targetTeacher?.name}. You will receive Ustaz feedback and Tajweed marks once evaluated.`);
   };
@@ -701,7 +799,14 @@ export const TajweedVoiceRecorder: React.FC = () => {
     );
 
     setSubmissions(updatedList);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(updatedList));
+        localStorage.setItem('alimran_quran_recitations_v2', JSON.stringify(updatedList));
+      } catch {}
+    }
     await idbSet(STORAGE_RECITATIONS_KEY, updatedList);
+    idbSet('alimran_quran_recitation_submissions', updatedList).catch(() => {});
     if (contextUpdateRecitation) {
       contextUpdateRecitation(updatedSubmission.id, updatedSubmission).catch(() => {});
     }
@@ -744,7 +849,14 @@ export const TajweedVoiceRecorder: React.FC = () => {
     if (!confirm('Are you sure you want to delete this recitation recording?')) return;
     const updated = submissions.filter((s) => s.id !== id);
     setSubmissions(updated);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_RECITATIONS_KEY, JSON.stringify(updated));
+        localStorage.setItem('alimran_quran_recitations_v2', JSON.stringify(updated));
+      } catch {}
+    }
     await idbSet(STORAGE_RECITATIONS_KEY, updated);
+    idbSet('alimran_quran_recitation_submissions', updated).catch(() => {});
     if (contextDeleteRecitation) {
       contextDeleteRecitation(id).catch(() => {});
     }
@@ -768,12 +880,29 @@ export const TajweedVoiceRecorder: React.FC = () => {
   const pendingSubmissions = submissions.filter((s) => s.status === 'pending_review');
   const reviewedSubmissions = submissions.filter((s) => s.status === 'reviewed');
 
-  // Student specific submissions
-  const myStudentSubmissions = submissions.filter(
-    (s) => s.studentId === studentFormStudentId
-  );
-  const myPendingSubmissions = myStudentSubmissions.filter((s) => s.status === 'pending_review');
-  const myReviewedSubmissions = myStudentSubmissions.filter((s) => s.status === 'reviewed');
+  // Student specific submissions matching current student context
+  const myStudentSubmissions = useMemo(() => {
+    return submissions.filter((s) => {
+      if (s.studentId === studentFormStudentId) return true;
+      if (currentStudent && s.studentId === currentStudent.id) return true;
+      if (isActualStudent && currentUser) {
+        if (s.studentId === currentUser.id) return true;
+        if (s.studentName && currentUser.name && s.studentName.toLowerCase().trim() === currentUser.name.toLowerCase().trim()) return true;
+      }
+      return false;
+    });
+  }, [submissions, studentFormStudentId, currentStudent, isActualStudent, currentUser]);
+
+  // If user selected 'all' or if myStudentSubmissions has 0 items but submissions exist,
+  // we display all submissions so no recorded recitation is ever lost or hidden!
+  const displayedStudentSubmissions = useMemo(() => {
+    if (studentViewFilter === 'all') return submissions;
+    if (myStudentSubmissions.length > 0) return myStudentSubmissions;
+    return submissions;
+  }, [studentViewFilter, myStudentSubmissions, submissions]);
+
+  const myPendingSubmissions = displayedStudentSubmissions.filter((s) => s.status === 'pending_review');
+  const myReviewedSubmissions = displayedStudentSubmissions.filter((s) => s.status === 'reviewed');
 
   return (
     <div className="space-y-6">
@@ -848,10 +977,10 @@ export const TajweedVoiceRecorder: React.FC = () => {
       {activeRoleView === 'student' && (
         <div className="space-y-6">
           {/* Student Sub-Tabs Navigation */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap sm:flex-wrap border-b border-slate-200 dark:border-slate-800 pb-3">
             <button
-              onClick={() => setStudentSubTab('record_new')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              onClick={() => changeStudentSubTab('record_new')}
+              className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 studentSubTab === 'record_new'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -862,8 +991,8 @@ export const TajweedVoiceRecorder: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setStudentSubTab('my_submissions')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer relative ${
+              onClick={() => changeStudentSubTab('my_submissions')}
+              className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer relative ${
                 studentSubTab === 'my_submissions'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1051,7 +1180,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                     {!isRecording ? (
                       <>
                         <button
@@ -1189,7 +1318,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
 
                   {myReviewedSubmissions.length > 0 && (
                     <button
-                      onClick={() => setStudentSubTab('my_submissions')}
+                      onClick={() => changeStudentSubTab('my_submissions')}
                       className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                     >
                       <span>View Ustaz Feedback &amp; Tajweed Marks</span>
@@ -1212,35 +1341,79 @@ export const TajweedVoiceRecorder: React.FC = () => {
                       My Submitted Recitations &amp; Teacher Feedback
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Recitations for {currentStudent?.firstName} {currentStudent?.lastName} ({currentStudent?.arabicName})
+                      {studentViewFilter === 'all'
+                        ? `Showing all ${submissions.length} recitation(s) across all students`
+                        : `Recitations for ${currentStudent?.firstName} ${currentStudent?.lastName} (${currentStudent?.arabicName})`}
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setStudentSubTab('record_new')}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Record New Recitation
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setStudentViewFilter('selected')}
+                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                          studentViewFilter === 'selected'
+                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {currentStudent?.firstName || 'Current Student'} ({myStudentSubmissions.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStudentViewFilter('all')}
+                        className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                          studentViewFilter === 'all'
+                            ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        All Recitations ({submissions.length})
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => changeStudentSubTab('record_new')}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Record New Recitation
+                    </button>
+                  </div>
                 </div>
 
-                {myStudentSubmissions.length === 0 ? (
+                {myStudentSubmissions.length === 0 && submissions.length > 0 && studentViewFilter === 'selected' && (
+                  <div className="p-3 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/60 rounded-xl flex items-center justify-between text-xs text-teal-800 dark:text-teal-300">
+                    <span>
+                      Notice: No recitations were tagged under <strong>{currentStudent?.firstName}</strong>, but <strong>{submissions.length}</strong> recitation(s) exist in your Madrasa database. Displaying all recitations below so your recorded recitations are always visible.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStudentViewFilter('all')}
+                      className="px-2.5 py-1 bg-teal-600 text-white font-bold rounded-lg shrink-0 ml-2 cursor-pointer"
+                    >
+                      View All
+                    </button>
+                  </div>
+                )}
+
+                {displayedStudentSubmissions.length === 0 ? (
                   <div className="text-center py-12 space-y-3">
                     <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center">
                       <Mic className="w-6 h-6" />
                     </div>
-                    <p className="text-xs text-slate-500">No recitations sent yet for this student.</p>
+                    <p className="text-xs text-slate-500">No recitations sent yet.</p>
                     <button
-                      onClick={() => setStudentSubTab('record_new')}
-                      className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl"
+                      onClick={() => changeStudentSubTab('record_new')}
+                      className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl cursor-pointer"
                     >
                       Record Your First Sabaq Recitation
                     </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {myStudentSubmissions.map((sub) => (
+                    {displayedStudentSubmissions.map((sub) => (
                       <div
                         key={sub.id}
                         className={`p-5 rounded-2xl border transition space-y-3 ${
@@ -1387,10 +1560,10 @@ export const TajweedVoiceRecorder: React.FC = () => {
       {activeRoleView === 'teacher' && (
         <div className="space-y-6">
           {/* Ustaz Navigation Sub-Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap sm:flex-wrap border-b border-slate-200 dark:border-slate-800 pb-3">
             <button
               onClick={() => setTeacherSubTab('pending_queue')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer relative ${
+              className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer relative ${
                 teacherSubTab === 'pending_queue'
                   ? 'bg-amber-500 text-amber-950 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1408,7 +1581,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
             <button
               onClick={() => setTeacherSubTab('workbench')}
               disabled={!evaluatingSubmission}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 teacherSubTab === 'workbench'
                   ? 'bg-amber-500 text-amber-950 shadow-xs'
                   : evaluatingSubmission
@@ -1425,7 +1598,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
 
             <button
               onClick={() => setTeacherSubTab('reviewed_archive')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+              className={`shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 teacherSubTab === 'reviewed_archive'
                   ? 'bg-amber-500 text-amber-950 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1471,7 +1644,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                         key={sub.id}
                         className="p-5 rounded-2xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400 transition space-y-4"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-amber-200 dark:bg-amber-800 text-amber-950 dark:text-amber-100 font-black text-sm flex items-center justify-center">
                               {sub.studentName.slice(0, 2).toUpperCase()}
@@ -1522,7 +1695,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                         </div>
 
                         {/* Audio Preview & Grade Button */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
                           <button
                             type="button"
                             onClick={() => toggleSubmissionPlayback(sub)}
@@ -1807,7 +1980,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100"
                 />
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handlePublishTeacherEvaluation}
@@ -1846,7 +2019,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                     key={sub.id}
                     className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition bg-slate-50/50 dark:bg-slate-800/40 space-y-3"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <h4 className="text-xs font-black text-slate-900 dark:text-white">
                           {sub.studentName} <span className="text-[10px] text-slate-400 font-arabic">({sub.studentArabicName})</span>
@@ -1862,7 +2035,7 @@ export const TajweedVoiceRecorder: React.FC = () => {
                     </div>
 
                     {/* Audio Player Strip */}
-                    <div className="bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between text-xs">
+                    <div className="bg-slate-900 text-white p-3 rounded-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2.5">
                         <button
                           type="button"
@@ -1927,8 +2100,8 @@ export const TajweedVoiceRecorder: React.FC = () => {
 
       {/* Recitation Detailed Inspection Modal */}
       {inspectingSubmission && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full max-h-[92dvh] overflow-y-auto p-4 sm:p-6 my-auto shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white">

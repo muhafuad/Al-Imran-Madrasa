@@ -27,11 +27,14 @@ import {
   Moon,
   Globe,
   LogIn,
+  LogOut,
   Check,
   X,
+  Menu,
 } from 'lucide-react';
 import { CAMPUS_PROGRAMS, FACULTY_MEMBERS, MADRASA_TESTIMONIALS, FAQ_ITEMS, CURRENT_MADRASA_INFO } from '../../data/mockData';
 import { EntranceApplicationForm } from '../assessment/EntranceApplicationForm';
+import { LoginModal } from '../auth/LoginModal';
 
 export const LandingPage: React.FC = () => {
   const {
@@ -42,10 +45,16 @@ export const LandingPage: React.FC = () => {
     toggleTheme,
     setActiveTab,
     currentUser,
+    logoutUser,
     donationCauses,
     submitAdmissionInquiry,
     addNotification,
+    dir,
   } = useMadrasa();
+
+  // Login modal & mobile menu open states
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Inquiry form state
   const [inquiryForm, setInquiryForm] = useState({
@@ -104,15 +113,15 @@ export const LandingPage: React.FC = () => {
   const totalDonors = donationCauses.reduce((acc, c) => acc + c.donorsCount, 0);
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors duration-200">
+    <div dir={dir} className="min-h-dvh overflow-x-hidden bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors duration-200">
       {/* Top Notification Bar */}
-      <div className="bg-emerald-800 dark:bg-emerald-950 text-emerald-100 px-4 py-2 text-xs md:text-sm font-medium">
+      <div className="bg-emerald-800 dark:bg-emerald-950 text-emerald-100 px-3 sm:px-4 py-2 text-xs md:text-sm font-medium">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center space-x-2 rtl:space-x-reverse">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-700 dark:bg-emerald-900 text-emerald-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-700 dark:bg-emerald-900 text-emerald-100 shrink-0">
               {language === 'ar' ? 'التسجيل مفتوح' : language === 'am' ? 'ምዝገባ ተከፍቷል' : 'Admissions Open'}
             </span>
-            <span>
+            <span className="truncate sm:whitespace-normal text-[11px] sm:text-xs md:text-sm">
               {language === 'ar'
                 ? 'موسم التسجيل لعام 1448 هـ / 2026 م لحلقات التحفيظ والدراسات الإسلامية'
                 : language === 'am'
@@ -120,11 +129,11 @@ export const LandingPage: React.FC = () => {
                 : 'Academic Year 2026 / 1448 AH Hifz & Shariah Enrollment is now live'}
             </span>
           </div>
-          <div className="flex items-center space-x-4 rtl:space-x-reverse text-xs">
+          <div className="hidden sm:flex items-center space-x-4 rtl:space-x-reverse text-xs shrink-0">
             <span className="flex items-center gap-1">
               <Phone className="w-3.5 h-3.5" /> +251 911 234 567
             </span>
-            <span className="hidden sm:flex items-center gap-1">
+            <span className="flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" /> CMC Ayat, Addis Ababa
             </span>
           </div>
@@ -133,27 +142,27 @@ export const LandingPage: React.FC = () => {
 
       {/* Main Public Navigation Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur border-b border-stone-200 dark:border-stone-800 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 h-16 sm:h-20 min-w-0">
             {/* Brand Logo & Name */}
-            <div className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer" onClick={() => setActiveTab('landing')}>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20">
-                <BookOpen className="w-6 h-6" />
+            <div className="flex items-center gap-2.5 sm:gap-3 cursor-pointer min-w-0 flex-1 md:flex-initial" onClick={() => setActiveTab('landing')}>
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20 shrink-0">
+                <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-emerald-900 dark:text-emerald-300 font-serif">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h1 className="text-sm sm:text-xl font-bold tracking-tight text-emerald-900 dark:text-emerald-300 font-serif truncate">
                     {CURRENT_MADRASA_INFO.name}
                   </h1>
                 </div>
-                <p className="text-xs text-stone-500 dark:text-stone-400 font-arabic">
+                <p className="hidden sm:block text-xs text-stone-500 dark:text-stone-400 font-arabic truncate">
                   {CURRENT_MADRASA_INFO.arabicName}
                 </p>
               </div>
             </div>
 
-            {/* Nav Links */}
-            <nav className="hidden md:flex items-center space-x-6 rtl:space-x-reverse text-sm font-medium text-stone-700 dark:text-stone-300">
+            {/* Nav Links (Desktop) */}
+            <nav className="hidden md:flex items-center space-x-6 rtl:space-x-reverse text-sm font-medium text-stone-700 dark:text-stone-300 shrink-0">
               <a href="#about" className="hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">
                 {language === 'ar' ? 'عن المجمع' : language === 'am' ? 'ስለ መድረሳው' : 'About Us'}
               </a>
@@ -171,10 +180,10 @@ export const LandingPage: React.FC = () => {
               </a>
             </nav>
 
-            {/* Actions: Donate, Day/Night, Lang, Portal */}
-            <div className="flex items-center space-x-2 sm:space-x-3 rtl:space-x-reverse">
-              {/* Language Switcher */}
-              <div className="relative flex items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-1 text-xs">
+            {/* Actions: Donate, Day/Night, Lang, Portal, Mobile Menu */}
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              {/* Language Switcher (Desktop/Tablet) */}
+              <div className="hidden sm:flex relative items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-1 text-xs">
                 <Globe className="w-3.5 h-3.5 text-stone-500 mx-1" />
                 {(['en', 'am', 'ar'] as const).map(lang => (
                   <button
@@ -194,33 +203,122 @@ export const LandingPage: React.FC = () => {
               {/* Day / Night Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
                 title={theme === 'dark' ? t.dayMode : t.nightMode}
                 aria-label="Toggle Theme"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-stone-700" />}
               </button>
 
-              {/* Donate Button */}
+              {/* Donate Button (Tablet/Desktop header) */}
               <button
                 onClick={() => setActiveTab('donate')}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
               >
                 <Heart className="w-4 h-4 fill-white" />
-                <span className="hidden xs:inline">{t.donateAndWaqf}</span>
-                <span className="xs:hidden">{t.donateNow}</span>
+                <span>{t.donateAndWaqf}</span>
               </button>
 
-              {/* Portal Login / Dashboard Button */}
+              {/* Portal Login or Logged In User Controls */}
+              {currentUser ? (
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className="flex items-center gap-1.5 px-3 sm:px-3.5 min-h-[40px] rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer"
+                    title="Open Madrasa Portal Dashboard"
+                  >
+                    <LogIn className="w-4 h-4 shrink-0" />
+                    <span className="hidden sm:inline font-bold">{currentUser.name.split(' ')[0]}</span>
+                    <span className="hidden sm:inline">({t.dashboard})</span>
+                    <span className="sm:hidden">{t.dashboard}</span>
+                  </button>
+                  <button
+                    onClick={logoutUser}
+                    className="hidden sm:flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-stone-600 hover:text-rose-600 dark:text-stone-400 dark:hover:text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                    title={t.logout}
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 min-h-[40px] rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors cursor-pointer"
+                  title="Open Portal Login Gate"
+                >
+                  <LogIn className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">{t.madrasaPortal || 'Portal Login'}</span>
+                  <span className="sm:hidden">{t.login || 'Login'}</span>
+                </button>
+              )}
+
+              {/* Mobile Menu Toggle */}
               <button
-                onClick={() => setActiveTab('dashboard')}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors"
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
+                aria-label="Toggle Navigation Menu"
               >
-                <LogIn className="w-4 h-4" />
-                <span>{currentUser ? t.dashboard : t.madrasaPortal}</span>
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
             </div>
           </div>
+
+          {/* Mobile Dropdown Drawer */}
+          {mobileMenuOpen && (
+            <div className="md:hidden pb-4 pt-2 border-t border-stone-200 dark:border-stone-800 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+              <nav className="grid grid-cols-2 gap-2 text-xs font-semibold text-stone-700 dark:text-stone-200">
+                <a href="#about" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:text-emerald-600">
+                  {language === 'ar' ? 'عن المجمع' : language === 'am' ? 'ስለ መድረሳው' : 'About Us'}
+                </a>
+                <a href="#programs" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:text-emerald-600">
+                  {t.ourPrograms}
+                </a>
+                <a href="#faculty" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:text-emerald-600">
+                  {t.ourFaculty}
+                </a>
+                <a href="#admissions" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:text-emerald-600">
+                  {t.admissions}
+                </a>
+                <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:text-emerald-600">
+                  {t.faq}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setActiveTab('donate');
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-amber-600 text-white flex items-center justify-center gap-1.5 font-bold"
+                >
+                  <Heart className="w-3.5 h-3.5 fill-white" />
+                  <span>{t.donateNow}</span>
+                </button>
+              </nav>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+                <span className="text-xs font-semibold text-stone-500 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" />
+                  {t.language}
+                </span>
+                <div className="flex items-center bg-stone-100 dark:bg-stone-800 rounded-lg p-1 text-xs">
+                  {(['en', 'am', 'ar'] as const).map(lang => (
+                    <button
+                      key={lang}
+                      onClick={() => setLanguage(lang)}
+                      className={`px-2.5 py-1 rounded font-semibold transition-colors ${
+                        language === lang
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-stone-600 dark:text-stone-400'
+                      }`}
+                    >
+                      {lang === 'en' ? 'EN' : lang === 'am' ? 'አማ' : 'عربي'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -232,14 +330,14 @@ export const LandingPage: React.FC = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {/* Left Column: Headlines & Call to Actions */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left rtl:lg:text-right">
+            <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left rtl:lg:text-right">
               {/* Ayat Calligraphy Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-800/80 border border-emerald-600/40 text-emerald-200 text-xs sm:text-sm font-arabic">
-                <Sparkles className="w-4 h-4 text-amber-400" />
+              <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl sm:rounded-full bg-emerald-800/80 border border-emerald-600/40 text-emerald-200 text-xs sm:text-sm font-arabic max-w-full">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ • اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ</span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-serif text-white leading-tight">
+              <h1 className="text-2xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-serif text-white leading-tight">
                 {language === 'ar'
                   ? 'صرح قرآني رائد لتربية الأجيال على هدى القرآن والسنة'
                   : language === 'am'
@@ -247,19 +345,19 @@ export const LandingPage: React.FC = () => {
                   : 'Nurturing Generations upon the Noble Qur\'an & Prophetic Sunnah'}
               </h1>
 
-              <p className="text-base sm:text-lg text-emerald-100/90 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-sans">
+              <p className="text-sm sm:text-lg text-emerald-100/90 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-sans">
                 {language === 'ar'
-                  ? 'مجمع آل عمران بسي إم سي بأديስ أبابا يقدم برامج تحفيظ متكاملة بالسند المتصل إلى النبي ﷺ، مع تعليم متين للغة العربية والعلوم الشرعية لجميع الأعمار في بيئة تربوية ملهمة.'
+                  ? 'مجمع آل عمران بسي إم سي بأديس أبابا يقدم برامج تحفيظ متكاملة بالسند المتصل إلى النبي ﷺ، مع تعليم متين للغة العربية والعلوم الشرعية لجميع الأعمار في بيئة تربوية ملهمة.'
                   : language === 'am'
                   ? 'በሲኤምሲ አዲስ አበባ የሚገኘው አል ዒምራን መድረሳ የተሟላ የቁርኣን ሂፍዝ፣ የተጅዊድ ሰነድ፣ የሸሪዓ እውቀቶችና የአረብኛ ቋንቋ ትምህርት በልዩ ጥራት ያቀርባል።'
                   : 'Al-Imran CMC Madrasa provides accredited full-time and weekend Qur\'an Tahfeez with continuous Sanad transmission to the Prophet ﷺ, classical Arabic Nahw, and Islamic Sciences in Addis Ababa.'}
               </p>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
                 <a
                   href="#admissions"
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold text-sm sm:text-base shadow-lg shadow-emerald-900/30 transition-transform active:scale-95"
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold text-sm sm:text-base shadow-lg shadow-emerald-900/30 transition-transform active:scale-95"
                 >
                   <GraduationCap className="w-5 h-5" />
                   <span>{t.applyNow}</span>
@@ -268,7 +366,7 @@ export const LandingPage: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('donate')}
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-sm sm:text-base shadow-lg shadow-amber-900/30 transition-transform active:scale-95"
+                  className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold text-sm sm:text-base shadow-lg shadow-amber-900/30 transition-transform active:scale-95"
                 >
                   <Heart className="w-5 h-5 fill-amber-950" />
                   <span>{t.donateAndWaqf}</span>
@@ -276,11 +374,24 @@ export const LandingPage: React.FC = () => {
 
                 <a
                   href="#programs"
-                  className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-700/90 text-white font-semibold text-sm border border-emerald-600/40 transition-colors"
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-emerald-800/80 hover:bg-emerald-700/90 text-white font-semibold text-sm border border-emerald-600/40 transition-colors"
                 >
                   <BookOpen className="w-4 h-4" />
                   <span>{t.ourPrograms}</span>
                 </a>
+
+                <button
+                  type="button"
+                  onClick={() => currentUser ? setActiveTab('dashboard') : setIsLoginModalOpen(true)}
+                  className="flex items-center gap-2 px-5 py-3.5 rounded-xl bg-teal-900/90 hover:bg-teal-800 text-white font-semibold text-sm border border-emerald-500/40 transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4 text-emerald-300" />
+                  <span>
+                    {currentUser
+                      ? (language === 'ar' ? 'لوحة التحكم والتحفيظ' : language === 'am' ? 'የመድረሳው ዳሽቦርድ' : 'Open Portal')
+                      : (language === 'ar' ? 'بوابة المعلمين والطلاب' : language === 'am' ? 'የአስተማሪና ተማሪ ፖርታል' : 'Staff & Student Portal')}
+                  </span>
+                </button>
               </div>
 
               {/* Accreditation Badges */}
@@ -470,13 +581,13 @@ export const LandingPage: React.FC = () => {
               <div className="rounded-2xl overflow-hidden shadow-xl border border-stone-200 dark:border-stone-700">
                 <img
                   src="/madrasa.jpg"
-                  alt="Al-Imran CMC Madrasa"
+                  alt="Madrasa Quran Recitation"
                   className="w-full h-80 sm:h-96 object-cover"
                 />
                 <div className="p-5 bg-stone-900 text-white space-y-2">
                   <div className="flex items-center justify-between text-xs text-emerald-400 font-semibold">
-                    <span>CMC Campus Tahfeez Circle</span>
-                    <span>President of our Institution</span>
+                    <span>Presedent of CmC madrasa</span>
+                    
                   </div>
                   <p className="text-xs text-stone-300 font-arabic text-right">
                     «خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ» — رواه البخاري
@@ -1026,18 +1137,27 @@ export const LandingPage: React.FC = () => {
             <h4 className="font-semibold text-white text-sm">Portals & Access</h4>
             <ul className="space-y-1.5">
               <li>
-                <button onClick={() => setActiveTab('dashboard')} className="hover:text-emerald-400">
-                  Administrative Portal
+                <button
+                  onClick={() => currentUser ? setActiveTab('dashboard') : setIsLoginModalOpen(true)}
+                  className="hover:text-emerald-400 cursor-pointer"
+                >
+                  {currentUser ? 'Madrasa Portal Dashboard' : 'Staff & Student Portal Login'}
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('students')} className="hover:text-emerald-400">
-                  Student Directory
+                <button
+                  onClick={() => currentUser ? setActiveTab('students') : setIsLoginModalOpen(true)}
+                  className="hover:text-emerald-400 cursor-pointer"
+                >
+                  Student Directory & Records
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('quran')} className="hover:text-emerald-400">
-                  Hifz Progress Dashboard
+                <button
+                  onClick={() => currentUser ? setActiveTab('quran') : setIsLoginModalOpen(true)}
+                  className="hover:text-emerald-400 cursor-pointer"
+                >
+                  Qur'an Memorization Studio
                 </button>
               </li>
             </ul>
@@ -1063,8 +1183,8 @@ export const LandingPage: React.FC = () => {
 
       {/* Online Entrance Assessment Modal */}
       {isEntranceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden my-auto max-h-[92dvh] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-emerald-600" />
@@ -1088,6 +1208,10 @@ export const LandingPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Portal Login Modal Overlay */}
+      {isLoginModalOpen && (
+        <LoginModal onClose={() => setIsLoginModalOpen(false)} />
       )}
     </div>
   );

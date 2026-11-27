@@ -36,7 +36,7 @@ import {
   SUPABASE_SQL_SCHEMA,
   isSupabaseConfigured,
 } from '../../lib/supabase';
-import type {Language } from '../../i18n/translations';
+import { type Language } from '../../i18n/translations';
 import { UserManagementModal } from '../auth/UserManagementModal';
 import { AccessDenied } from '../common/AccessDenied';
 
@@ -194,8 +194,8 @@ export const SettingsModule: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-black text-slate-900 dark:text-white">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
               {isSuperAdmin ? 'Institutional Settings, Logo & Supabase' : 'Institutional Settings & Preferences'}
             </h1>
             <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
@@ -209,11 +209,11 @@ export const SettingsModule: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {(currentUser?.role === 'super_admin' || currentUser?.role === 'principal') && (
             <button
               onClick={() => setShowUserModal(true)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              className="flex-1 sm:flex-initial justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>{t.registerStaffMember}</span>
@@ -222,7 +222,7 @@ export const SettingsModule: React.FC = () => {
 
           <button
             onClick={handleSaveSettings}
-            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            className="flex-1 sm:flex-initial justify-center px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>{t.save}</span>
